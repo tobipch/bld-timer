@@ -7,4 +7,11 @@ export default defineConfig({
   server: {
     preset: "vercel",
   },
+  vite: {
+    // cubing.js spawns its scramble worker from a bundled chunk; Vite's
+    // module-preload helper uses `document`, which crashes inside workers —
+    // plain dynamic imports keep the worker entry worker-safe.
+    build: { modulePreload: false },
+    optimizeDeps: { exclude: ["cubing"] },
+  },
 });
