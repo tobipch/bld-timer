@@ -1,0 +1,34 @@
+{
+  "name": "bld-timer",
+  "version": "0.1.0",
+  "description": "Smart-cube timer for 3x3 blindfolded with automatic solve reconstruction and a self-learning algorithm database",
+  "type": "module",
+  "scripts": {
+    "dev": "vinxi dev",
+    "build": "vinxi build",
+    "start": "vinxi start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@solidjs/router": "^0.16.1",
+    "@solidjs/start": "^1.3.2",
+    "btcube-web": "^1.1.5",
+    "cubing": "^0.63.3",
+    "rxjs": "^7.8.2",
+    "solid-js": "^1.9.13",
+    "uplot": "^1.6.32",
+    "vinxi": "^0.5.11"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  }
+}
