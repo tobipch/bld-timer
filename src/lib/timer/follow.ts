@@ -18,7 +18,7 @@ import type { OuterMove } from "../cube/state";
  * actually reports.
  */
 
-export type TokenStatus = "done" | "current" | "pending";
+export type TokenStatus = "done" | "current" | "partial" | "pending";
 
 export interface FollowDisplay {
   tokens: { text: string; status: TokenStatus }[];
@@ -73,16 +73,22 @@ export class ScrambleFollower {
     return this.deviation.length > 0 && !this.isPartial();
   }
 
+  /**
+   * A half-turn in progress: a single quarter turn on the face of an
+   * expected double turn counts as halfway (either direction works, since
+   * D D and D' D' both complete a D2). Anything else on that face is a
+   * wrong turn, not a partial.
+   */
   private isPartial(): boolean {
-    return (
-      this.deviation.length === 1 &&
-      this.pointer < this.expected.length &&
-      this.deviation[0].face === this.expected[this.pointer].face
-    );
+    if (this.deviation.length !== 1 || this.pointer >= this.expected.length) return false;
+    const expected = this.expected[this.pointer];
+    const dev = this.deviation[0];
+    return dev.face === expected.face && expected.amount === 2 && dev.amount !== 2;
   }
 
   display(): FollowDisplay {
     const doneMoves = this.pointer;
+    const partial = this.isPartial();
     const tokens = this.tokens.map((t, i) => {
       const span = this.tokenOf
         .map((tok, mi) => ({ tok, mi }))
@@ -95,13 +101,12 @@ export class ScrambleFollower {
       } else if (span.every((e) => e.mi < doneMoves)) {
         status = "done";
       } else if (span.some((e) => e.mi === doneMoves)) {
-        status = "current";
+        status = partial ? "partial" : "current";
       } else {
         status = "pending";
       }
       return { text: formatToken(t), status };
     });
-    const partial = this.isPartial();
     const corrections = partial
       ? []
       : invertOuterMoves(this.deviation).map((m) => m.face + (m.amount === 2 ? "2" : m.amount === 3 ? "'" : ""));

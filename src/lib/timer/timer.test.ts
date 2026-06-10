@@ -16,9 +16,26 @@ describe("ScrambleFollower", () => {
     expect(f.display().tokens.map((t) => t.status)).toEqual(["done", "current", "pending"]);
     f.onMove({ face: "U", amount: 1 }); // half of U2
     expect(f.display().partial).toBe(true);
+    expect(f.display().tokens.map((t) => t.status)).toEqual(["done", "partial", "pending"]);
     expect(f.display().corrections).toEqual([]);
-    f.onMove({ face: "U", amount: 1 });
+    f.onMove({ face: "U", amount: 1 }); // completes the U2: green, move on
+    expect(f.display().tokens.map((t) => t.status)).toEqual(["done", "done", "current"]);
     f.onMove({ face: "F", amount: 3 });
+    expect(f.isDone).toBe(true);
+  });
+
+  it("a wrong-direction quarter turn is a correction, not a partial", () => {
+    const f = new ScrambleFollower("D U2");
+    f.onMove({ face: "D", amount: 3 }); // D' when D is expected
+    expect(f.display().partial).toBe(false);
+    expect(f.display().corrections).toEqual(["D"]);
+    f.onMove({ face: "D", amount: 1 }); // undo; back to expecting D
+    expect(f.display().tokens.map((t) => t.status)).toEqual(["current", "pending"]);
+    f.onMove({ face: "D", amount: 1 });
+    // either direction counts as halfway through a double turn
+    f.onMove({ face: "U", amount: 3 });
+    expect(f.display().tokens.map((t) => t.status)).toEqual(["done", "partial"]);
+    f.onMove({ face: "U", amount: 3 });
     expect(f.isDone).toBe(true);
   });
 

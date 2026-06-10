@@ -247,9 +247,13 @@ select:focus {
   font-weight: 700;
 }
 
-.tok-pending {
+.tok-partial {
   color: var(--warn);
   font-weight: 700;
+}
+
+.tok-pending {
+  color: var(--text);
 }
 
 .tok-correction {
