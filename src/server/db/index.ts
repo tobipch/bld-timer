@@ -6,10 +6,12 @@ export type Db = NeonHttpDatabase<typeof schema>;
 
 let cached: Db | null | undefined;
 
-/** Returns the Neon database, or null when DATABASE_URL is not configured. */
+/** Returns the Neon database, or null when no connection string is configured. */
 export function getDb(): Db | null {
   if (cached !== undefined) return cached;
-  const url = process.env.DATABASE_URL;
+  // DATABASE_URL preferred; POSTGRES_URL is what some Vercel/Neon
+  // integration setups inject instead
+  const url = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
   if (!url) {
     cached = null;
     return cached;
