@@ -784,3 +784,29 @@ select:focus {
   display: flex;
   gap: 6px;
 }
+
+/* ---- login / account ---- */
+
+.nav-badge {
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+
+.login-page {
+  display: flex;
+  justify-content: center;
+  padding-top: 40px;
+}
+
+.login-card {
+  width: 360px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}

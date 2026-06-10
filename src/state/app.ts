@@ -6,15 +6,18 @@ import { TimerMachine, type SolveOutcome } from "~/lib/timer/machine";
 import type { CubeIO } from "~/lib/cube-io/types";
 import { VirtualCube } from "~/lib/cube-io/virtual";
 import { createLocalStorageAdapter } from "~/lib/storage/local";
+import { createRemoteAdapter, fetchServerStatus, type ServerStatus } from "~/lib/storage/remote";
 import type { AlgExecution, Session, SolveRecord, StorageAdapter } from "~/lib/storage/types";
 import { settings, setSettings } from "./settings";
 
 /**
  * Client-side application store: wires the timer machine, the cube
- * connection, scramble generation and persistence together.
+ * connection, scramble generation and persistence together. Storage is the
+ * Neon-backed API when the server has a database (logged in or guest
+ * fallback), otherwise localStorage.
  */
 function createApp() {
-  const storage: StorageAdapter = createLocalStorageAdapter();
+  let storage: StorageAdapter = createLocalStorageAdapter();
 
   // intrinsic-frame buffers derived from settings (user frame + orientation)
   const intrinsicBuffers = createMemo(() => {
@@ -47,8 +50,16 @@ function createApp() {
   const [solves, setSolves] = createSignal<SolveRecord[]>([]);
   const [executions, setExecutions] = createSignal<AlgExecution[]>([]);
   const [selectedSolveId, setSelectedSolveId] = createSignal<string | null>(null);
+  const [server, setServer] = createSignal<ServerStatus | null>(null);
+  const [storageMode, setStorageMode] = createSignal<"local" | "remote">("local");
 
   async function loadData() {
+    const status = await fetchServerStatus();
+    setServer(status);
+    if (status?.db && (status.user || status.guestAllowed)) {
+      storage = createRemoteAdapter();
+      setStorageMode("remote");
+    }
     const ss = await storage.listSessions();
     setSessions(ss);
     let sid = settings.sessionId;
@@ -128,25 +139,27 @@ function createApp() {
       })),
       reconstruction: outcome.reconstruction,
     };
-    const saved = await storage.addSolve(rec);
     const execs = outcome.reconstruction.steps
       .filter((s) => s.kind === "case" && s.primitive)
       .map((s) => ({
-        solveId: saved.id,
         sessionId: sid,
-        at: saved.startedAt,
+        at: rec.startedAt,
         caseKey: caseKey(s.primitive!),
         primitive: s.primitive!,
         moves: s.moves.map(outerMoveToString).join(" "),
         execMs: s.execMs,
         recogMs: s.recogMs,
       }));
-    const savedExecs = execs.length > 0 ? await storage.addExecutions(execs) : [];
-    batch(() => {
-      setSolves((xs) => [...xs, saved]);
-      setExecutions((xs) => [...xs, ...savedExecs]);
-      setSelectedSolveId(saved.id);
-    });
+    try {
+      const { solve: saved, executions: savedExecs } = await storage.addSolveWithExecutions(rec, execs);
+      batch(() => {
+        setSolves((xs) => [...xs, saved]);
+        setExecutions((xs) => [...xs, ...savedExecs]);
+        setSelectedSolveId(saved.id);
+      });
+    } catch (e) {
+      setError(`saving solve failed: ${e}`);
+    }
   }
 
   /** Space (or trigger button). Returns true when the event was consumed. */
@@ -206,6 +219,8 @@ function createApp() {
     deleteExecution,
     addSession,
     intrinsicBuffers,
+    server,
+    storageMode,
   };
 }
 

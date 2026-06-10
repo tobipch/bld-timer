@@ -1,7 +1,32 @@
 import { A, Router } from "@solidjs/router";
 import { FileRoutes } from "@solidjs/start/router";
-import { Suspense } from "solid-js";
+import { Show, Suspense } from "solid-js";
+import { useApp } from "./state/app";
 import "./styles/app.css";
+
+function AccountArea() {
+  const app = useApp();
+  return (
+    <Show
+      when={app.server()?.db}
+      fallback={<span class="muted nav-badge" title="No database configured — data stays in this browser">local</span>}
+    >
+      <Show
+        when={app.server()?.user}
+        fallback={
+          <>
+            <span class="warn nav-badge" title="Data goes to the shared guest account">
+              guest
+            </span>
+            <A href="/login">Log in</A>
+          </>
+        }
+      >
+        {(u) => <A href="/login">{u().name || u().email}</A>}
+      </Show>
+    </Show>
+  );
+}
 
 function Layout(props: { children?: any }) {
   return (
@@ -24,7 +49,9 @@ function Layout(props: { children?: any }) {
             Settings
           </A>
         </div>
-        <div class="nav-right" id="nav-right" />
+        <div class="nav-right">
+          <AccountArea />
+        </div>
       </nav>
       <main class="main-content">{props.children}</main>
     </div>

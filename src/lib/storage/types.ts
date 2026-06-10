@@ -38,9 +38,12 @@ export interface StorageAdapter {
   listSessions(): Promise<Session[]>;
   addSession(name: string): Promise<Session>;
   listSolves(sessionId?: string): Promise<SolveRecord[]>;
-  addSolve(rec: Omit<SolveRecord, "id">): Promise<SolveRecord>;
+  /** persist a solve and its recorded alg executions together */
+  addSolveWithExecutions(
+    rec: Omit<SolveRecord, "id">,
+    execs: Omit<AlgExecution, "id" | "solveId">[],
+  ): Promise<{ solve: SolveRecord; executions: AlgExecution[] }>;
   deleteSolve(id: string): Promise<void>;
   listExecutions(): Promise<AlgExecution[]>;
-  addExecutions(list: Omit<AlgExecution, "id">[]): Promise<AlgExecution[]>;
   deleteExecution(id: string): Promise<void>;
 }

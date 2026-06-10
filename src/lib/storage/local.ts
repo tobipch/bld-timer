@@ -47,11 +47,14 @@ export function createLocalStorageAdapter(): StorageAdapter {
       const solves = read<SolveRecord>(KEY.solves);
       return sessionId ? solves.filter((s) => s.sessionId === sessionId) : solves;
     },
-    async addSolve(rec) {
+    async addSolveWithExecutions(rec, execs) {
       const solves = read<SolveRecord>(KEY.solves);
-      const full: SolveRecord = { ...rec, id: newId() };
-      write(KEY.solves, [...solves, full]);
-      return full;
+      const solve: SolveRecord = { ...rec, id: newId() };
+      write(KEY.solves, [...solves, solve]);
+      const existing = read<AlgExecution>(KEY.executions);
+      const executions: AlgExecution[] = execs.map((e) => ({ ...e, id: newId(), solveId: solve.id }));
+      write(KEY.executions, [...existing, ...executions]);
+      return { solve, executions };
     },
     async deleteSolve(id) {
       write(
@@ -65,12 +68,6 @@ export function createLocalStorageAdapter(): StorageAdapter {
     },
     async listExecutions() {
       return read<AlgExecution>(KEY.executions);
-    },
-    async addExecutions(list) {
-      const existing = read<AlgExecution>(KEY.executions);
-      const full = list.map((e) => ({ ...e, id: newId() }));
-      write(KEY.executions, [...existing, ...full]);
-      return full;
     },
     async deleteExecution(id) {
       write(
