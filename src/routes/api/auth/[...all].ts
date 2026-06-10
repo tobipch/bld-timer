@@ -1,7 +1,9 @@
 import type { APIEvent } from "@solidjs/start/server";
 import { getAuth } from "~/server/auth";
+import { getDbReady } from "~/server/db";
 
-function handle(event: APIEvent) {
+async function handle(event: APIEvent) {
+  await getDbReady(); // auth tables must exist before better-auth touches them
   const auth = getAuth();
   if (!auth) return new Response("auth not configured (no DATABASE_URL)", { status: 503 });
   return auth.handler(event.request);

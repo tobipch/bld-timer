@@ -1,10 +1,16 @@
 import type { APIEvent } from "@solidjs/start/server";
-import { getDb } from "~/server/db";
+import { getDbReady } from "~/server/db";
 import { getAuth, guestAllowed } from "~/server/auth";
 import { json } from "~/server/api";
 
 export async function GET(event: APIEvent) {
-  const db = getDb();
+  let db = null;
+  try {
+    db = await getDbReady();
+  } catch (e) {
+    console.error("migration failed:", e);
+    return json({ db: false, guestAllowed: guestAllowed(), user: null, error: "db init failed" });
+  }
   if (!db) return json({ db: false, guestAllowed: guestAllowed(), user: null });
   const auth = getAuth();
   const session = auth ? await auth.api.getSession({ headers: event.request.headers }) : null;

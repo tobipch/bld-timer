@@ -1,4 +1,4 @@
-import { getDb, type Db } from "./db";
+import { getDbReady, type Db } from "./db";
 import { resolveUserId } from "./auth";
 
 export const json = (data: unknown, status = 200) =>
@@ -15,7 +15,7 @@ export class ApiError extends Error {
 
 /** Resolve db + acting user or throw an ApiError the route turns into a response. */
 export async function requireUser(request: Request): Promise<{ db: Db; userId: string; guest: boolean }> {
-  const db = getDb();
+  const db = await getDbReady();
   if (!db) throw new ApiError(503, "no database configured");
   const u = await resolveUserId(request);
   if (!u) throw new ApiError(401, "login required");
