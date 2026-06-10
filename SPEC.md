@@ -82,13 +82,13 @@ move sequence the user actually performed** as that case's algorithm.
 IDLE ──connect──▶ AWAIT_SOLVED ──cube solved──▶ SCRAMBLING ──scramble matches──▶ READY
                                                      ▲                            │ space
                                                      │ (turn while READY:         ▼
-                                                     │  back to SCRAMBLING       MEMO ◀─┐
-                                                     │  with corrections)         │     │
-                                                     │                 first turn │     │ space pressed,
-        ┌──── new scramble generated ◀── DONE ◀──────┴──────────────────▶ EXEC ───┘     │ cube unsolved
-        │                                 ▲                                │            │
-        └─────────────────────────────────┤          cube solved ──────────┤            │
-                                          └────────── (success) ◀──────────┴─── DNF ◀───┘
+                                                     │  back to SCRAMBLING       MEMO ─────────────┐
+                                                     │  with corrections)         │ first turn     │
+                                                     │                            ▼                │ space during MEMO
+                                                     │                           EXEC              │ ⇒ DNF
+                                                     │                            │ space          │
+                                                     │                            ▼                ▼
+        new scramble generated ◀──────────────────── DONE ◀── solved ⇒ success │ unsolved ⇒ DNF ◀──┘
 ```
 
 - **AWAIT_SOLVED**: on connect (or after a DNF), if the cube isn't solved, show the live cube
@@ -105,9 +105,10 @@ IDLE ──connect──▶ AWAIT_SOLVED ──cube solved──▶ SCRAMBLING �
 - **MEMO**: timer runs, phase shown as MEMO. No cube moves expected. First cube move event →
   memo time is frozen (`memo = firstMoveTimestamp − startTimestamp`) and phase becomes EXEC.
   Pressing space during MEMO ends the solve as **DNF** (no execution).
-- **EXEC**: timer continues. Solve ends when:
-  - the cube reaches the solved state (any whole-cube orientation) → **success**, or
-  - space is pressed while unsolved → **DNF**.
+- **EXEC**: timer continues. The solve **always ends with space — never automatically**,
+  even if the cube reaches the solved state (matching real BLD, where you stop the timer
+  yourself). When space is pressed, the cube state at that moment decides the result:
+  solved (any whole-cube orientation) → **success**; not solved → **DNF**.
 - **DONE**: result card + reconstruction shown, next scramble generated immediately.
 - Timer display during MEMO/EXEC is configurable: full time / nothing (blind-friendly).
   Memo/exec split is always recorded.
@@ -242,13 +243,37 @@ Chosen for performance (per Tobias: "most performant stack"):
 | Concern | Choice | Why |
 |---|---|---|
 | UI framework | **SolidJS + TypeScript** | Fastest mainstream reactive framework (fine-grained reactivity, no VDOM) — ideal for high-frequency move events and a live ms timer |
-| Build | **Vite** | Same as ltct-trainer, instant dev server |
+| App framework | **SolidStart** (Vercel preset) | Keeps SolidJS while adding server functions/API routes needed for auth + database |
+| Hosting | **Vercel** | As requested; SolidStart deploys via the Vercel preset |
+| Database | **Neon Postgres** + **Drizzle ORM** | As requested; serverless driver fits Vercel functions, Drizzle is the lightest type-safe ORM |
+| Auth | **better-auth** (email + password) | Framework-agnostic, stores users/sessions directly in Neon, works in SolidStart server functions; OAuth providers can be added later without migration |
+| Build | **Vite** | Underlies SolidStart; same family as ltct-trainer, instant dev server |
 | Cube logic | **cubing.js** (`kpuzzle`, `scramble`) | Already the state format btcube-web emits (`KPattern`); WCA-grade random-state scrambles in a worker |
 | Smart cube | **btcube-web** | As requested (QiYi + MoYu); RxJS subscriptions |
-| Persistence | **IndexedDB via Dexie** | Solve history + learned alg DB grow unbounded; localStorage only for settings |
 | Charts | **uPlot** | Fastest tiny chart lib (~40 kB), perfect for time series |
 | Styling | Plain CSS (CSS variables for theming) | Zero runtime cost, no framework lock-in |
 | Tests | **Vitest** | Engine is pure functions → fixture-based tests with real solve sequences |
+
+### 7.1 Accounts & persistence
+
+- **Login**: email + password via better-auth (cookie sessions). Sign-up, login, logout,
+  password change. OAuth providers are a later, migration-free addition.
+- **Guest fallback (for testing)**: the app is fully usable without logging in —
+  unauthenticated visitors transparently act as a shared **default user** (a real row in the
+  database). A banner notes "using the app as guest — log in to keep your data personal".
+  Controlled by an env flag (`ALLOW_GUEST_FALLBACK`, on by default for now).
+- **Per-user data** (all keyed by user id): settings + letter scheme, timer sessions, solves
+  (times, scramble, move log, reconstruction), learned alg cases and their recorded
+  executions/timings.
+- **Schema sketch**: `user` / `session` / `account` (better-auth managed), `timer_session`,
+  `solve` (result, total/memo/exec ms, scramble, moves JSON, reconstruction JSON),
+  `alg_case` (type, buffer, sticker-level targets), `alg_execution` (case ref, solve ref,
+  move sequence, exec ms, recognition ms).
+- **Data flow**: the timer itself is 100 % client-side (Bluetooth, state tracking,
+  reconstruction — no latency on the hot path). After each solve, the result and its
+  classified segments are written to the API in one request, optimistically, without
+  blocking the next solve. History/stats/database views read from the API. No offline mode
+  for now (future work).
 
 **Virtual cube dev mode**: keyboard-driven simulated smart cube (keys → moves) behind a dev
 flag, so the whole flow — scramble follow, memo/exec, reconstruction, learning DB — is fully
@@ -260,16 +285,20 @@ testable without Bluetooth hardware and in CI. Real-cube testing is done by Tobi
 
 ## 8. Milestones
 
-1. **M1 — Skeleton + state machine**: Vite/Solid scaffold, virtual cube, timer state machine
-   (§2) end-to-end with keyboard cube, memo/exec split.
+1. **M1 — Skeleton + state machine**: SolidStart scaffold (Vercel-ready), virtual cube,
+   timer state machine (§2) end-to-end with keyboard cube, memo/exec split.
 2. **M2 — Scramble**: random-state generation, follow-along UI with corrections, READY gate.
 3. **M3 — Reconstruction engine**: piece model, primitive detection, DP segmentation, DNF
    point-of-failure analysis. Full unit-test suite (this milestone is test-heavy on purpose).
-4. **M4 — Learning database**: persistence, per-case timing, matrix/list views, case detail.
-5. **M5 — Statistics**: time list, trend chart, success rate, bo5/ao5/ao12, sessions.
-6. **M6 — Settings**: letter scheme editor, buffer order, timer options, theming.
-7. **M7 — Real hardware integration**: btcube-web wiring polish, connection UX, battery,
-   state-desync recovery; GitHub Pages deployment workflow.
+4. **M4 — Persistence & accounts**: Neon + Drizzle schema, better-auth email/password,
+   guest fallback to default user, solves stored server-side.
+5. **M5 — Learning database**: per-case aggregation and timing, matrix/list views, case
+   detail, curation.
+6. **M6 — Statistics**: time list, trend chart, success rate, bo5/ao5/ao12, sessions.
+7. **M7 — Settings**: letter scheme editor, orientation, buffer order, timer options,
+   theming.
+8. **M8 — Real hardware integration**: btcube-web wiring polish, connection UX, battery,
+   state-desync recovery; production Vercel deployment checks.
 
 Each milestone lands as working, committed increments on the feature branch.
 
@@ -279,7 +308,8 @@ Each milestone lands as working, committed increments on the feature branch.
 
 - Space **hold 0 ms** to start, i.e. instant (configurable).
 - Space during MEMO = DNF.
-- Solved in any orientation counts as solved.
+- The solve only ever ends with space; solved-in-any-orientation at that moment = success.
+- Guest fallback enabled: without login, data goes to the shared default user.
 - Sessions exist but a single default session is created; stats default to current session
   with an all-time toggle.
 - English UI only for now (i18n structure kept simple enough to add DE later).
