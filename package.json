@@ -28,6 +28,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.9.2",
+    "@types/web-bluetooth": "^0.0.21",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8"
   }

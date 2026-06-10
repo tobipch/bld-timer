@@ -188,3 +188,330 @@ select:focus {
 .bad {
   color: var(--bad);
 }
+
+/* ---- timer page ---- */
+
+.timer-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.connect-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.conn-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+}
+
+.conn-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--good);
+  display: inline-block;
+}
+
+.conn-error {
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.scramble {
+  text-align: center;
+}
+
+.scramble-tokens {
+  font-family: var(--mono);
+  font-size: 26px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.tok-done {
+  color: var(--good);
+}
+
+.tok-current {
+  font-weight: 700;
+}
+
+.tok-pending {
+  color: var(--warn);
+  font-weight: 700;
+}
+
+.tok-correction {
+  color: var(--bad);
+  font-weight: 700;
+}
+
+.scramble-corrections {
+  margin-top: 8px;
+  font-family: var(--mono);
+  color: var(--bad);
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: baseline;
+}
+
+.timer-grid {
+  display: grid;
+  grid-template-columns: 230px 1fr 230px;
+  gap: 14px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .timer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.timer-center {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.timer-display {
+  text-align: center;
+  padding: 30px 0 10px;
+}
+
+.timer-time {
+  font-size: 96px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 2px;
+}
+
+.timer-phase {
+  margin-top: 10px;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+}
+
+.timer-split {
+  margin-top: 6px;
+  min-height: 18px;
+}
+
+.phase-memo .timer-time,
+.phase-memo .timer-phase {
+  color: var(--memo);
+}
+
+.phase-exec .timer-time,
+.phase-exec .timer-phase {
+  color: var(--exec);
+}
+
+.phase-ready .timer-phase {
+  color: var(--good);
+}
+
+.phase-armed .timer-time,
+.phase-armed .timer-phase {
+  color: var(--warn);
+}
+
+.phase-ok .timer-time {
+  color: var(--good);
+}
+
+.phase-dnf .timer-time {
+  color: var(--bad);
+}
+
+/* ---- time list ---- */
+
+.timelist h3,
+.statspanel h3,
+.recon h3,
+.devpanel h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+}
+
+.timelist ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.timelist li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.timelist li:hover {
+  background: var(--bg-inset);
+}
+
+.timelist li.selected {
+  background: var(--bg-inset);
+  outline: 1px solid var(--accent-dim);
+}
+
+.tl-n {
+  width: 26px;
+  text-align: right;
+  font-size: 12px;
+}
+
+.tl-time {
+  font-weight: 600;
+}
+
+.tl-split {
+  font-size: 11px;
+  flex: 1;
+}
+
+.tl-del {
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  padding: 0 4px;
+  font-size: 14px;
+}
+
+.tl-del:hover {
+  color: var(--bad);
+}
+
+/* ---- stats panel ---- */
+
+.statspanel table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.statspanel td {
+  padding: 3px 0;
+  font-size: 14px;
+}
+
+.statspanel td:last-child {
+  text-align: right;
+}
+
+/* ---- reconstruction ---- */
+
+.recon-steps {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recon-step {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.step-kind {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--bg-inset);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.step-edge .step-kind {
+  color: var(--exec);
+}
+
+.step-corner .step-kind {
+  color: var(--memo);
+}
+
+.step-parity .step-kind,
+.step-ltct .step-kind {
+  color: var(--warn);
+}
+
+.step-flip .step-kind,
+.step-twist .step-kind {
+  color: var(--good);
+}
+
+.step-unknown .step-kind,
+.step-unknown .step-label {
+  color: var(--bad);
+}
+
+.step-label {
+  font-weight: 600;
+}
+
+.step-moves {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.step-times {
+  font-size: 12px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.recon-dnf {
+  margin-top: 10px;
+  color: var(--bad);
+  font-size: 14px;
+}
+
+/* ---- dev panel ---- */
+
+.dev-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.dev-buttons button {
+  min-width: 42px;
+  padding: 4px 8px;
+}
+
+.dev-alg {
+  display: flex;
+  gap: 8px;
+}
+
+.dev-alg input {
+  flex: 1;
+  font-family: var(--mono);
+}

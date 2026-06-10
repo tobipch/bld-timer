@@ -167,19 +167,30 @@ function normAmount(n: number): 1 | 2 | 3 | 0 {
 
 /**
  * Translate a token list into the outer moves a smart cube would report.
- * Returns the moves and the net frame map (logical face -> core face).
+ * Returns the moves, the net frame map (logical face -> core face), and for
+ * each emitted move the index of the token it came from (rotations emit no
+ * moves; slices emit two).
  */
-export function tokensToOuterMoves(tokens: AlgToken[]): { moves: OuterMove[]; frame: FaceMap } {
+export function tokensToOuterMoves(tokens: AlgToken[]): {
+  moves: OuterMove[];
+  frame: FaceMap;
+  tokenOf: number[];
+} {
   let frame: FaceMap = { ...ID_MAP };
   const out: OuterMove[] = [];
+  const tokenOf: number[] = [];
+  let current = 0;
 
   const emit = (logicalFace: Face, amount: number) => {
     const a = normAmount(amount);
     if (a === 0) return;
     out.push({ face: frame[logicalFace], amount: a });
+    tokenOf.push(current);
   };
 
-  for (const t of tokens) {
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    current = i;
     if (t.amount === 0) continue;
     if (t.kind === "outer") {
       emit(t.base as Face, t.amount);
@@ -197,7 +208,12 @@ export function tokensToOuterMoves(tokens: AlgToken[]): { moves: OuterMove[]; fr
       frame = rotateFrame(frame, def.rot, def.rotAmount * signed);
     }
   }
-  return { moves: out, frame };
+  return { moves: out, frame, tokenOf };
+}
+
+export function formatToken(t: AlgToken): string {
+  const base = t.kind === "wide" ? t.base + "w" : t.base;
+  return base + (t.amount === 2 ? "2" : t.amount === 3 ? "'" : "");
 }
 
 /** Convenience: parse an alg string and translate to reported outer moves. */
