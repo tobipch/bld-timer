@@ -1,0 +1,148 @@
+import { describe, expect, it } from "vitest";
+import { algToOuterMoves, invertOuterMoves } from "../cube/alg";
+import { applyMoves, solvedState, type OuterMove } from "../cube/state";
+import { buffersFromNames, refName } from "./classify";
+import { defaultBuffers } from "../cube/speffz";
+import { reconstructSolve, type TimedMove } from "./reconstruct";
+
+const bufs = defaultBuffers();
+const buffers = buffersFromNames(bufs.corners, bufs.edges);
+
+/**
+ * Synthesize a BLD solve: the execution is a known sequence of algs, the
+ * "scramble" is the inverse of their combined effect. Timestamps: 150 ms
+ * between moves within an alg, 900 ms thinking pause before each alg.
+ */
+function makeSolve(algs: string[]): { start: ReturnType<typeof solvedState>; moves: TimedMove[] } {
+  const perAlg = algs.map((a) => algToOuterMoves(a));
+  const all: OuterMove[] = perAlg.flat();
+  const start = applyMoves(solvedState(), invertOuterMoves(all));
+  const moves: TimedMove[] = [];
+  let t = 1000;
+  for (const algMoves of perAlg) {
+    t += 900; // recognition pause
+    for (const m of algMoves) {
+      moves.push({ move: m, t });
+      t += 150;
+    }
+  }
+  return { start, moves };
+}
+
+const EDGE_COMM_1 = "[R2 U': [R2, S]]"; // UF: UR UB (BA)
+const EDGE_COMM_2 = "[U' M2 U': [M, U2]]"; // UF: UL UB (DA)
+const CORNER_COMM_1 = "[R' D R U: [R' D' R, U]]"; // UFR: UBR UBL (BA)
+const CORNER_COMM_2 = "[F: [R' D' R, U2]]"; // UFR: LUF UBL (FA)
+const PARITY_UFR_UBL = "r2 D' r2 U' r2 D r2 D' r2 D r2 U' r2 U r2"; // UFR<->UBL, UF<->UR
+const FLIP_UF_UR = "R' F R U' M' U2 M U' S R' F' R S'";
+const PSEUDO_SWAP_TO_UR = "[R U' R' U, M']"; // UF -> FD -> UR: cycle ends in the parity slot
+
+describe("reconstructSolve", () => {
+  it("segments a clean multi-alg solve into the executed cases", () => {
+    const { start, moves } = makeSolve([EDGE_COMM_1, EDGE_COMM_2, CORNER_COMM_1, CORNER_COMM_2]);
+    const rec = reconstructSolve(start, moves, buffers);
+    expect(rec.solved).toBe(true);
+    expect(rec.brokenFromIdx).toBeNull();
+    const cases = rec.steps.filter((s) => s.kind === "case");
+    expect(cases.map((s) => s.primitive!.type)).toEqual([
+      "edgeComm",
+      "edgeComm",
+      "cornerComm",
+      "cornerComm",
+    ]);
+    const first = cases[0].primitive!;
+    if (first.type !== "edgeComm") throw new Error("unreachable");
+    expect(refName(first.buffer)).toBe("UF");
+    expect(first.targets.map(refName)).toEqual(["UR", "UB"]);
+  });
+
+  it("measures recognition and execution time per case", () => {
+    const { start, moves } = makeSolve([EDGE_COMM_1, CORNER_COMM_1]);
+    const rec = reconstructSolve(start, moves, buffers);
+    const cases = rec.steps.filter((s) => s.kind === "case");
+    expect(cases).toHaveLength(2);
+    // within-alg time: (moveCount - 1) * 150
+    expect(cases[0].execMs).toBe((cases[0].moves.length - 1) * 150);
+    // second case: 900 ms pause plus the 150 ms tail of the previous step
+    expect(cases[1].recogMs).toBe(900 + 150);
+  });
+
+  it("handles parity and flags the pseudo-swap edge target", () => {
+    const { start, moves } = makeSolve([PSEUDO_SWAP_TO_UR, CORNER_COMM_1, PARITY_UFR_UBL]);
+    const rec = reconstructSolve(start, moves, buffers);
+    expect(rec.solved).toBe(true);
+    const types = rec.steps.filter((s) => s.kind === "case").map((s) => s.primitive!.type);
+    expect(types).toEqual(["edgeComm", "cornerComm", "parity"]);
+    const edge = rec.steps[0].primitive!;
+    if (edge.type !== "edgeComm") throw new Error("unreachable");
+    expect(edge.pseudoSwap).toBe(true);
+  });
+
+  it("recognizes flips", () => {
+    const { start, moves } = makeSolve([EDGE_COMM_1, FLIP_UF_UR]);
+    const rec = reconstructSolve(start, moves, buffers);
+    expect(rec.solved).toBe(true);
+    const types = rec.steps.filter((s) => s.kind === "case").map((s) => s.primitive!.type);
+    expect(types).toEqual(["edgeComm", "flip"]);
+  });
+
+  it("treats cancelling fidget moves as a no-op segment", () => {
+    const fidget: TimedMove[] = [];
+    const { start, moves } = makeSolve([EDGE_COMM_1, CORNER_COMM_1]);
+    // insert U U' between the algs
+    const splitAt = algToOuterMoves(EDGE_COMM_1).length;
+    const withFidget = [
+      ...moves.slice(0, splitAt),
+      { move: { face: "U", amount: 1 }, t: moves[splitAt - 1].t + 100 },
+      { move: { face: "U", amount: 3 }, t: moves[splitAt - 1].t + 200 },
+      ...moves.slice(splitAt),
+    ] as TimedMove[];
+    const rec = reconstructSolve(start, withFidget, buffers);
+    expect(rec.solved).toBe(true);
+    expect(rec.steps.some((s) => s.kind === "noop")).toBe(true);
+    const caseTypes = rec.steps.filter((s) => s.kind === "case").map((s) => s.primitive!.type);
+    expect(caseTypes).toEqual(["edgeComm", "cornerComm"]);
+    expect(fidget).toHaveLength(0);
+  });
+
+  it("reports the point of failure for a DNF (interrupted alg)", () => {
+    const { start, moves } = makeSolve([EDGE_COMM_1, EDGE_COMM_2, CORNER_COMM_1]);
+    // user stops 3 moves into the third alg
+    const len1 = algToOuterMoves(EDGE_COMM_1).length;
+    const len2 = algToOuterMoves(EDGE_COMM_2).length;
+    const truncated = moves.slice(0, len1 + len2 + 3);
+    const rec = reconstructSolve(start, truncated, buffers);
+    expect(rec.solved).toBe(false);
+    const cases = rec.steps.filter((s) => s.kind === "case");
+    expect(cases.map((s) => s.primitive!.type)).toEqual(["edgeComm", "edgeComm"]);
+    expect(rec.brokenFromIdx).toBe(len1 + len2);
+    expect(rec.leftover).not.toBeNull();
+    expect(rec.leftover!.corners.length).toBeGreaterThan(0);
+  });
+
+  it("recovers after an unexplained block when later algs are clean", () => {
+    const { start, moves } = makeSolve([EDGE_COMM_1, CORNER_COMM_1]);
+    const len1 = algToOuterMoves(EDGE_COMM_1).length;
+    // wreck the middle: two moves that don't cancel (F2 D), making the rest wrong too
+    const junk: TimedMove[] = [
+      { move: { face: "F", amount: 2 }, t: moves[len1 - 1].t + 100 },
+      { move: { face: "D", amount: 1 }, t: moves[len1 - 1].t + 200 },
+    ];
+    const wrecked = [...moves.slice(0, len1), ...junk, ...moves.slice(len1)];
+    const rec = reconstructSolve(start, wrecked, buffers);
+    expect(rec.solved).toBe(false);
+    // the first comm is still recognized
+    const cases = rec.steps.filter((s) => s.kind === "case");
+    expect(cases.length).toBeGreaterThanOrEqual(1);
+    const first = cases[0].primitive!;
+    if (first.type !== "edgeComm") throw new Error("unreachable");
+    expect(first.targets.map(refName)).toEqual(["UR", "UB"]);
+  });
+
+  it("explains an empty or single-move tail honestly", () => {
+    const { start } = makeSolve([EDGE_COMM_1]);
+    const rec = reconstructSolve(start, [], buffers);
+    expect(rec.solved).toBe(false);
+    expect(rec.steps).toHaveLength(0);
+  });
+});

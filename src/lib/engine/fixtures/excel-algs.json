@@ -27522,7 +27522,17 @@
    ],
    "direction": "CW",
    "letters": "RN",
-   "alg": "U' R' F R U R' U' R' F' R U' R' D' R U2 R' D R2 CCW (EQ): R2 D' U2 R' D R U R' F R U R U' R' F' R U"
+   "alg": "U' R' F R U R' U' R' F' R U' R' D' R U2 R' D R2"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UBL",
+    "UBR"
+   ],
+   "direction": "CCW",
+   "letters": "EQ",
+   "alg": "R2 D' U2 R' D R U R' F R U R U' R' F' R U"
   },
   {
    "corners": [
@@ -27532,7 +27542,17 @@
    ],
    "direction": "CW",
    "letters": "RF",
-   "alg": "F R U R' U' R' F' R U' R' D' R U2 R' D R2 U' R' CCW (EI): R U R2 D' R U2 R' D R U R' F R U R U' R' F'"
+   "alg": "F R U R' U' R' F' R U' R' D' R U2 R' D R2 U' R'"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UBL",
+    "UFL"
+   ],
+   "direction": "CCW",
+   "letters": "EI",
+   "alg": "R U R2 D' R U2 R' D R U R' F R U R U' R' F'"
   },
   {
    "corners": [
@@ -27542,7 +27562,17 @@
    ],
    "direction": "CW",
    "letters": "NF",
-   "alg": "U2 R' F R U R' U' R' F' R U' R' D' R U2 R' D R2 U CCW (QI): U' R2 D' R U2 R' D R U R' F R U R U' R' F' R U2"
+   "alg": "U2 R' F R U R' U' R' F' R U' R' D' R U2 R' D R2 U"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UBR",
+    "UFL"
+   ],
+   "direction": "CCW",
+   "letters": "QI",
+   "alg": "U' R2 D' R U2 R' D R U R' F R U R U' R' F' R U2"
   },
   {
    "corners": [
@@ -27552,7 +27582,17 @@
    ],
    "direction": "CW",
    "letters": "RH",
-   "alg": "U' D R' U' R' D R U R' D' R2 D' R D' R' U2 R D R' U' CCW (ES): U' R D' R' U2' R D R' D R2' D R U' R' D' R U R D' U'"
+   "alg": "U' D R' U' R' D R U R' D' R2 D' R D' R' U2 R D R' U'"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UBL",
+    "DBL"
+   ],
+   "direction": "CCW",
+   "letters": "ES",
+   "alg": "U' R D' R' U2' R D R' D R2' D R U' R' D' R U R D' U'"
   },
   {
    "corners": [
@@ -27562,7 +27602,17 @@
    ],
    "direction": "CW",
    "letters": "NH",
-   "alg": "D' R D R' U' R D' R' U D R U' R' U R D' R' U' R U D R' CCW (QS): D' U' R D R' U R D' R' D R D' U' R' U R D R' U' R U R'"
+   "alg": "D' R D R' U' R D' R' U D R U' R' U R D' R' U' R U D R'"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UBR",
+    "DBL"
+   ],
+   "direction": "CCW",
+   "letters": "QS",
+   "alg": "D' U' R D R' U R D' R' D R D' U' R' U R D R' U' R U R'"
   },
   {
    "corners": [
@@ -27572,7 +27622,17 @@
    ],
    "direction": "CW",
    "letters": "FH",
-   "alg": "U' R U' R' U R D' R' U' R U D R' D' R D R' U' R D' R' U2 D CCW (IS): U' R U' D' R' U R D R' U' R U R' D' U' R D R' U R D' R' D U"
+   "alg": "U' R U' R' U R D' R' U' R U D R' D' R D R' U' R D' R' U2 D"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UFL",
+    "DBL"
+   ],
+   "direction": "CCW",
+   "letters": "IS",
+   "alg": "U' R U' D' R' U R D R' U' R U R' D' U' R D R' U R D' R' D U"
   },
   {
    "corners": [
@@ -27582,7 +27642,17 @@
    ],
    "direction": "CW",
    "letters": "RT",
-   "alg": "R U2 R' D' R U' R' D R U' R2 U2 R' D' R U' R' D R U' R CCW (EO): R' U R' D' R U R' D R U2' R2' U R' D' R U R' D R U2' R'"
+   "alg": "R U2 R' D' R U' R' D R U' R2 U2 R' D' R U' R' D R U' R"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UBL",
+    "DBR"
+   ],
+   "direction": "CCW",
+   "letters": "EO",
+   "alg": "R' U R' D' R U R' D R U2' R2' U R' D' R U R' D R U2' R'"
   },
   {
    "corners": [
@@ -27592,7 +27662,17 @@
    ],
    "direction": "CW",
    "letters": "NT",
-   "alg": "R D R' U' R D' R' U D R U' R' U R D' R' U' R U D R' D' CCW (QO): U' R D R' U R D' R' D R D' U' R' U R D R' U' R U R' D'"
+   "alg": "R D R' U' R D' R' U D R U' R' U R D' R' U' R U D R' D'"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UBR",
+    "DBR"
+   ],
+   "direction": "CCW",
+   "letters": "QO",
+   "alg": "U' R D R' U R D' R' D R D' U' R' U R D R' U' R U R' D'"
   },
   {
    "corners": [
@@ -27602,7 +27682,17 @@
    ],
    "direction": "CW",
    "letters": "FT",
-   "alg": "R U' R' D' R U2 R' D R U' R2 U' R' D' R U2 R' D R U' R CCW (IO): R U R' D' R U2 R' D R U R2 U R' D' R U2 R' D R U R"
+   "alg": "R U' R' D' R U2 R' D R U' R2 U' R' D' R U2 R' D R U' R"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UFL",
+    "DBR"
+   ],
+   "direction": "CCW",
+   "letters": "IO",
+   "alg": "R U R' D' R U2 R' D R U R2 U R' D' R U2 R' D R U R"
   },
   {
    "corners": [
@@ -27612,7 +27702,17 @@
    ],
    "direction": "CW",
    "letters": "HT",
-   "alg": "U' R' U' R D' R' U R U D R D' R2 D R U R' D' R U' R D R' CCW (SO): U' D' R' U' R D R' U R U R D' R' U R' D R U' R' D' R2 D R'"
+   "alg": "U' R' U' R D' R' U R U D R D' R2 D R U R' D' R U' R D R'"
+  },
+  {
+   "corners": [
+    "UFR",
+    "DBL",
+    "DBR"
+   ],
+   "direction": "CCW",
+   "letters": "SO",
+   "alg": "U' D' R' U' R D R' U R U R D' R' U R' D R U' R' D' R2 D R'"
   },
   {
    "corners": [
@@ -27622,7 +27722,17 @@
    ],
    "direction": "CW",
    "letters": "RP",
-   "alg": "R U' R' F R U R' U' R' F' R U' R' D' R U2 R' D R CCW (EK): R' D' R U2 R' D R U R' F R U R U' R' F' R U R'"
+   "alg": "R U' R' F R U R' U' R' F' R U' R' D' R U2 R' D R"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UBL",
+    "DFR"
+   ],
+   "direction": "CCW",
+   "letters": "EK",
+   "alg": "R' D' R U2 R' D R U R' F R U R U' R' F' R U R'"
   },
   {
    "corners": [
@@ -27632,7 +27742,17 @@
    ],
    "direction": "CW",
    "letters": "NP",
-   "alg": "U R' D' R U' R' D R D' R' U D R U' R' D' R U R' U' R D CCW (QK): D' R' U R U' R' D R U R' U' D' R D R' D' R U R' D R U'"
+   "alg": "U R' D' R U' R' D R D' R' U D R U' R' D' R U R' U' R D"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UBR",
+    "DFR"
+   ],
+   "direction": "CCW",
+   "letters": "QK",
+   "alg": "D' R' U R U' R' D R U R' U' D' R D R' D' R U R' D R U'"
   },
   {
    "corners": [
@@ -27642,7 +27762,17 @@
    ],
    "direction": "CW",
    "letters": "FP",
-   "alg": "D' R' D R U' R' D' R U D R' U' R U R' D' R U' R' U D R CCW (IK): U' D' R' D R U R' D' R D R' U' D' R U R' D R U' R' U R"
+   "alg": "D' R' D R U' R' D' R U D R' U' R U R' D' R U' R' U D R"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UFL",
+    "DFR"
+   ],
+   "direction": "CCW",
+   "letters": "IK",
+   "alg": "U' D' R' D R U R' D' R D R' U' D' R U R' D R U' R' U R"
   },
   {
    "corners": [
@@ -27652,7 +27782,17 @@
    ],
    "direction": "CW",
    "letters": "HP",
-   "alg": "D' U' R' U R' D R U' R' D' R2 U D' R U R' D2 R U' R' CCW (SK): D' U' R2 D R U R' D' R U' R U D R U R' D2 R U' R' D2"
+   "alg": "D' U' R' U R' D R U' R' D' R2 U D' R U R' D2 R U' R'"
+  },
+  {
+   "corners": [
+    "UFR",
+    "DBL",
+    "DFR"
+   ],
+   "direction": "CCW",
+   "letters": "SK",
+   "alg": "D' U' R2 D R U R' D' R U' R U D R U R' D2 R U' R' D2"
   },
   {
    "corners": [
@@ -27662,7 +27802,17 @@
    ],
    "direction": "CW",
    "letters": "TP",
-   "alg": "R U R' D' R U' R' U D R D' R' D R U' R' D' R U D R' U' CCW (OK): D' R U R' D R U' R' U R U' D' R' D R U R' D' R D R' U'"
+   "alg": "R U R' D' R U' R' U D R D' R' D R U' R' D' R U D R' U'"
+  },
+  {
+   "corners": [
+    "UFR",
+    "DBR",
+    "DFR"
+   ],
+   "direction": "CCW",
+   "letters": "OK",
+   "alg": "D' R U R' D R U' R' U R U' D' R' D R U R' D' R D R' U'"
   },
   {
    "corners": [
@@ -27672,7 +27822,17 @@
    ],
    "direction": "CW",
    "letters": "RL",
-   "alg": "R' D R2 U' R' F R U R' U' R' F' R U' R' D' R U2 CCW (EG): U2 R' D R U R' F R U R U' R' F' R U R2 D' R"
+   "alg": "R' D R2 U' R' F R U R' U' R' F' R U' R' D' R U2"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UBL",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "EG",
+   "alg": "U2 R' D R U R' F R U R U' R' F' R U R2 D' R"
   },
   {
    "corners": [
@@ -27682,7 +27842,17 @@
    ],
    "direction": "CW",
    "letters": "NL",
-   "alg": "U D R' D' R U' R' D R D' R' U D R U' R' D' R U R' U' R CCW (QG): D R' D' R U R' D R U' D' R' U R U' R' D R U R' U' D' R"
+   "alg": "U D R' D' R U' R' D R D' R' U D R U' R' D' R U R' U' R"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UBR",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "QG",
+   "alg": "D R' D' R U R' D R U' D' R' U R U' R' D R U R' U' D' R"
   },
   {
    "corners": [
@@ -27692,7 +27862,17 @@
    ],
    "direction": "CW",
    "letters": "FL",
-   "alg": "R' D R U' R' D' R U D R' U' R U R' D' R U' R' U D R D' CCW (IG): U' R' D R U R' D' R D R' U' D' R U R' D R U' R' U R D'"
+   "alg": "R' D R U' R' D' R U D R' U' R U R' D' R U' R' U D R D'"
+  },
+  {
+   "corners": [
+    "UFR",
+    "UFL",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "IG",
+   "alg": "U' R' D R U R' D' R D R' U' D' R U R' D R U' R' U R D'"
   },
   {
    "corners": [
@@ -27702,7 +27882,17 @@
    ],
    "direction": "CW",
    "letters": "HL",
-   "alg": "D R U D R' D' R U' R' D R D' R' U D R U' R' D' R U R' U' D' CCW (SG): D R D R' D' R U R' D R U' D' R' U R U' R' D R U R' U' D2"
+   "alg": "D R U D R' D' R U' R' D R D' R' U D R U' R' D' R U R' U' D'"
+  },
+  {
+   "corners": [
+    "UFR",
+    "DBL",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "SG",
+   "alg": "D R D R' D' R U R' D R U' D' R' U R U' R' D R U R' U' D2"
   },
   {
    "corners": [
@@ -27712,7 +27902,17 @@
    ],
    "direction": "CW",
    "letters": "TL",
-   "alg": "U' R' U R' D R U' R' D' R2 U D' R U R' D2 R U' R' D' CCW (OG): U' R2 D R U R' D' R U' R U D R U R' D2 R U' R' D"
+   "alg": "U' R' U R' D R U' R' D' R2 U D' R U R' D2 R U' R' D'"
+  },
+  {
+   "corners": [
+    "UFR",
+    "DBR",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "OG",
+   "alg": "U' R2 D R U R' D' R U' R U D R U R' D2 R U' R' D"
   },
   {
    "corners": [
@@ -27722,357 +27922,717 @@
    ],
    "direction": "CW",
    "letters": "PL",
-   "alg": "R U D R' D' R U' R' D R D' R' U D R U' R' D' R U R' U' CCW (KG): R D R' D' R U R' D R U' D' R' U R U' R' D R U R' U' D'"
+   "alg": "R U D R' D' R U' R' D R D' R' U D R U' R' D' R U R' U'"
   },
   {
    "corners": [
     "UFR",
+    "DFR",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "KG",
+   "alg": "R D R' D' R U R' D R U' D' R' U R U' R' D R U R' U' D'"
+  },
+  {
+   "corners": [
     "UBL",
+    "UBR",
     "UFL"
    ],
    "direction": "CW",
    "letters": "NF",
-   "alg": "R' F R U R' U' R' F' R U' R' D' R U2 R' D R2 U' CCW (QI): U R2 D' R U2 R' D R U R' F R U R U' R' F' R"
+   "alg": "R' F R U R' U' R' F' R U' R' D' R U2 R' D R2 U'"
   },
   {
    "corners": [
-    "UFR",
     "UBL",
+    "UBR",
+    "UFL"
+   ],
+   "direction": "CCW",
+   "letters": "QI",
+   "alg": "U R2 D' R U2 R' D R U R' F R U R U' R' F' R"
+  },
+  {
+   "corners": [
+    "UBL",
+    "UBR",
     "DBL"
    ],
    "direction": "CW",
    "letters": "NH",
-   "alg": "R' U2 R' D2 R U2 R' D2 R' D' R' U R D R' U' CCW (QS): U R D' R' U' R D R D2' R U2' R' D2' R U2' R"
+   "alg": "R' U2 R' D2 R U2 R' D2 R' D' R' U R D R' U'"
   },
   {
    "corners": [
-    "UFR",
+    "UBL",
     "UBR",
+    "DBL"
+   ],
+   "direction": "CCW",
+   "letters": "QS",
+   "alg": "U R D' R' U' R D R D2' R U2' R' D2' R U2' R"
+  },
+  {
+   "corners": [
+    "UBL",
+    "UFL",
     "DBL"
    ],
    "direction": "CW",
    "letters": "FH",
-   "alg": "U R' U' R D' R' U2 R D R' U' R2 U R' U' R D' R' U R D U' R' U' CCW (IS): U R U D' R' U' R D R' U R U' R2' U R D' R' U2' R D R' U R U'"
+   "alg": "U R' U' R D' R' U2 R D R' U' R2 U R' U' R D' R' U R D U' R' U'"
   },
   {
    "corners": [
-    "UFR",
     "UBL",
+    "UFL",
+    "DBL"
+   ],
+   "direction": "CCW",
+   "letters": "IS",
+   "alg": "U R U D' R' U' R D R' U R U' R2' U R D' R' U2' R D R' U R U'"
+  },
+  {
+   "corners": [
+    "UBL",
+    "UBR",
     "DBR"
    ],
    "direction": "CW",
    "letters": "NT",
-   "alg": "U D R D' R' U' R D R' D' R U D R' U' R D' R' U R U' R' CCW (QO): R U R' U' R D R' U R D' U' R' D R D' R' U R D R' D' U'"
+   "alg": "U D R D' R' U' R D R' D' R U D R' U' R D' R' U R U' R'"
   },
   {
    "corners": [
-    "UFR",
+    "UBL",
     "UBR",
+    "DBR"
+   ],
+   "direction": "CCW",
+   "letters": "QO",
+   "alg": "R U R' U' R D R' U R D' U' R' D R D' R' U R D R' D' U'"
+  },
+  {
+   "corners": [
+    "UBL",
+    "UFL",
     "DBR"
    ],
    "direction": "CW",
    "letters": "FT",
-   "alg": "R S2 R' U2 R S2 R2 U R U2 R' U2 R U' CCW (IO): U R' U2' R U2' R' U' R2' S2' R' U2' R S2' R'"
+   "alg": "R S2 R' U2 R S2 R2 U R U2 R' U2 R U'"
   },
   {
    "corners": [
-    "UFR",
+    "UBL",
     "UFL",
+    "DBR"
+   ],
+   "direction": "CCW",
+   "letters": "IO",
+   "alg": "U R' U2' R U2' R' U' R2' S2' R' U2' R S2' R'"
+  },
+  {
+   "corners": [
+    "UBL",
+    "DBL",
     "DBR"
    ],
    "direction": "CW",
    "letters": "TH",
-   "alg": "D' R' U R D R' U' R' U2 R' D2 R U2 R' D2 R' CCW (OS): R D2 R U2' R' D2' R U2' R U R D' R' U' R D"
+   "alg": "D' R' U R D R' U' R' U2 R' D2 R U2 R' D2 R'"
   },
   {
    "corners": [
-    "UFR",
     "UBL",
+    "DBL",
+    "DBR"
+   ],
+   "direction": "CCW",
+   "letters": "OS",
+   "alg": "R D2 R U2' R' D2' R U2' R U R D' R' U' R D"
+  },
+  {
+   "corners": [
+    "UBL",
+    "UBR",
     "DFR"
    ],
    "direction": "CW",
    "letters": "NP",
-   "alg": "R U' R D R' U2 R D' R' U' R2 U' R D R' U2 R D' R' U' R CCW (KQ): R' U R D R' U2 R D' R' U R2 U R D R' U2 R D' R' U R'"
+   "alg": "R U' R D R' U2 R D' R' U' R2 U' R D R' U2 R D' R' U' R"
   },
   {
    "corners": [
-    "UFR",
+    "UBL",
     "UBR",
+    "DFR"
+   ],
+   "direction": "CCW",
+   "letters": "KQ",
+   "alg": "R' U R D R' U2 R D' R' U R2 U R D R' U2 R D' R' U R'"
+  },
+  {
+   "corners": [
+    "UBL",
+    "UFL",
     "DFR"
    ],
    "direction": "CW",
    "letters": "FP",
-   "alg": "U2 R' F' R U' R' D' R U2 R' D R2 U' R' F R U R' U CCW (IK): U' R U' R' F' R U R2 D' R U2 R' D R U R' F R U2"
+   "alg": "U2 R' F' R U' R' D' R U2 R' D R2 U' R' F R U R' U"
   },
   {
    "corners": [
-    "UFR",
+    "UBL",
     "UFL",
+    "DFR"
+   ],
+   "direction": "CCW",
+   "letters": "IK",
+   "alg": "U' R U' R' F' R U R2 D' R U2 R' D R U R' F R U2"
+  },
+  {
+   "corners": [
+    "UBL",
+    "DBL",
     "DFR"
    ],
    "direction": "CW",
    "letters": "PH",
-   "alg": "R U2 R' D2 R U2 R' D2 R' D' R' U R D R' U' R2 CCW (KS): R2 U R D' R' U' R D R D2 R U2 R' D2' R U2 R'"
+   "alg": "R U2 R' D2 R U2 R' D2 R' D' R' U R D R' U' R2"
   },
   {
    "corners": [
-    "UFR",
+    "UBL",
     "DBL",
+    "DFR"
+   ],
+   "direction": "CCW",
+   "letters": "KS",
+   "alg": "R2 U R D' R' U' R D R D2 R U2 R' D2' R U2 R'"
+  },
+  {
+   "corners": [
+    "UBL",
+    "DBR",
     "DFR"
    ],
    "direction": "CW",
    "letters": "PT",
-   "alg": "D' R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' CCW (KO): D' R U2 R' D R U R' F R U R U' R' F' R U R2"
+   "alg": "D' R U2 R' D R2 U' R' F R U R' U' R' F' R U' R'"
   },
   {
    "corners": [
-    "UFR",
     "UBL",
+    "DBR",
+    "DFR"
+   ],
+   "direction": "CCW",
+   "letters": "KO",
+   "alg": "D' R U2 R' D R U R' F R U R U' R' F' R U R2"
+  },
+  {
+   "corners": [
+    "UBL",
+    "UBR",
     "DFL"
    ],
    "direction": "CW",
    "letters": "NL",
-   "alg": "R' U2 R' D R2 U' R' F R U R' U' R' F' R U' R' D' R2 CCW (QG): R' U2 R' D R U R' F R U R U' R' F' R U R2 D' R2"
+   "alg": "R' U2 R' D R2 U' R' F R U R' U' R' F' R U' R' D' R2"
   },
   {
    "corners": [
-    "UFR",
+    "UBL",
     "UBR",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "QG",
+   "alg": "R' U2 R' D R U R' F R U R U' R' F' R U R2 D' R2"
+  },
+  {
+   "corners": [
+    "UBL",
+    "UFL",
     "DFL"
    ],
    "direction": "CW",
    "letters": "FL",
-   "alg": "U' R2 D2' R' U2' R D2' R' U2' R' U' R' D R U R' D' R U CCW (IG): U' R' D R U' R' D' R U R U2 R D2 R' U2 R D2 R2 U"
+   "alg": "U' R2 D2' R' U2' R D2' R' U2' R' U' R' D R U R' D' R U"
   },
   {
    "corners": [
-    "UFR",
+    "UBL",
     "UFL",
     "DFL"
    ],
-   "direction": "CW",
-   "letters": "LH",
-   "alg": "D R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' D2 CCW (GS): D R U2 R' D R U R' F R U R U' R' F' R U R2 D2"
+   "direction": "CCW",
+   "letters": "IG",
+   "alg": "U' R' D R U' R' D' R U R U2 R D2 R' U2 R D2 R2 U"
   },
   {
    "corners": [
-    "UFR",
+    "UBL",
     "DBL",
     "DFL"
    ],
    "direction": "CW",
-   "letters": "LT",
-   "alg": "R' U2 R' D R U' R' D' R U' R2 D2 R' U R D' R' U' R D' R' CCW (GO): R D R' U R D R' U' R D2' R2' U R' D R U R' D' R U2' R"
+   "letters": "LH",
+   "alg": "D R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' D2"
   },
   {
    "corners": [
-    "UFR",
+    "UBL",
+    "DBL",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "GS",
+   "alg": "D R U2 R' D R U R' F R U R U' R' F' R U R2 D2"
+  },
+  {
+   "corners": [
+    "UBL",
     "DBR",
     "DFL"
    ],
    "direction": "CW",
-   "letters": "LP",
-   "alg": "R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' D' CCW (GK): R U2 R' D R U R' F R U R U' R' F' R U R2 D'"
+   "letters": "LT",
+   "alg": "R' U2 R' D R U' R' D' R U' R2 D2 R' U R D' R' U' R D' R'"
   },
   {
    "corners": [
-    "UFR",
     "UBL",
+    "DBR",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "GO",
+   "alg": "R D R' U R D R' U' R D2' R2' U R' D R U R' D' R U2' R"
+  },
+  {
+   "corners": [
+    "UBL",
+    "DFR",
+    "DFL"
+   ],
+   "direction": "CW",
+   "letters": "LP",
+   "alg": "R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' D'"
+  },
+  {
+   "corners": [
+    "UBL",
+    "DFR",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "GK",
+   "alg": "R U2 R' D R U R' F R U R U' R' F' R U R2 D'"
+  },
+  {
+   "corners": [
+    "UFL",
+    "UBR",
     "DBL"
    ],
    "direction": "CW",
    "letters": "NH",
-   "alg": "(R' F R2 D' R' D R' F' R U2) (R D' R' U2 R D R' D' R D R') CCW (QS): (R D' R' D R D' R' U2 R D R' U2) (R' F R D' R D R2 F' R)"
+   "alg": "(R' F R2 D' R' D R' F' R U2) (R D' R' U2 R D R' D' R D R')"
   },
   {
    "corners": [
-    "UFR",
-    "UBL",
+    "UFL",
+    "UBR",
+    "DBL"
+   ],
+   "direction": "CCW",
+   "letters": "QS",
+   "alg": "(R D' R' D R D' R' U2 R D R' U2) (R' F R D' R D R2 F' R)"
+  },
+  {
+   "corners": [
+    "UFL",
+    "UBR",
     "DBR"
    ],
    "direction": "CW",
    "letters": "NT",
-   "alg": "U' R U2 R' D' R U' R' D R U' R2 U2 R' D' R U' R' D R U' R U CCW (QO): U' R' U R' D' R U R' D R U2' R2' U R' D' R U R' D R U2' R' U"
+   "alg": "U' R U2 R' D' R U' R' D R U' R2 U2 R' D' R U' R' D R U' R U"
   },
   {
    "corners": [
-    "UFR",
+    "UFL",
     "UBR",
+    "DBR"
+   ],
+   "direction": "CCW",
+   "letters": "QO",
+   "alg": "U' R' U R' D' R U R' D R U2' R2' U R' D' R U R' D R U2' R' U"
+  },
+  {
+   "corners": [
+    "UFL",
+    "DBL",
     "DBR"
    ],
    "direction": "CW",
    "letters": "HT",
-   "alg": "U D' R' U R D R' U' R' U2 R' D2 R U2 R' D2 R' U' CCW (SO): U R D2 R U2' R' D2' R U2' R U R D' R' U' R D U'"
+   "alg": "U D' R' U R D R' U' R' U2 R' D2 R U2 R' D2 R' U'"
   },
   {
    "corners": [
-    "UFR",
-    "UBL",
+    "UFL",
+    "DBL",
+    "DBR"
+   ],
+   "direction": "CCW",
+   "letters": "SO",
+   "alg": "U R D2 R U2' R' D2' R U2' R U R D' R' U' R D U'"
+  },
+  {
+   "corners": [
+    "UFL",
+    "UBR",
     "DFR"
    ],
    "direction": "CW",
    "letters": "NP",
-   "alg": "U' R U' R' F R U R' U' R' F' R U' R' D' R U2 R' D R U CCW (QK): U' R' D' R U2 R' D R U R' F R U R U' R' F' R U R' U"
+   "alg": "U' R U' R' F R U R' U' R' F' R U' R' D' R U2 R' D R U"
   },
   {
    "corners": [
-    "UFR",
+    "UFL",
     "UBR",
+    "DFR"
+   ],
+   "direction": "CCW",
+   "letters": "QK",
+   "alg": "U' R' D' R U2 R' D R U R' F R U R U' R' F' R U R' U"
+  },
+  {
+   "corners": [
+    "UFL",
+    "DBL",
     "DFR"
    ],
    "direction": "CW",
    "letters": "HP",
-   "alg": "U R U2 R' D 2 R U2 R' D2 R' D' R' U R D R' U' R2 U' CCW (SK): U R2 U R D' R' U' R D R D2 R U2 R' D2' R U2 R' U'"
+   "alg": "U R U2 R' D 2 R U2 R' D2 R' D' R' U R D R' U' R2 U'"
   },
   {
    "corners": [
-    "UFR",
     "UFL",
+    "DBL",
+    "DFR"
+   ],
+   "direction": "CCW",
+   "letters": "SK",
+   "alg": "U R2 U R D' R' U' R D R D2 R U2 R' D2' R U2 R' U'"
+  },
+  {
+   "corners": [
+    "UFL",
+    "DBR",
     "DFR"
    ],
    "direction": "CW",
    "letters": "TP",
-   "alg": "U D' R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' U' CCW (OK): U D' R U2 R' D R U R' F R U R U' R' F' R U R2 U'"
+   "alg": "U D' R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' U'"
   },
   {
    "corners": [
-    "UFR",
-    "UBL",
+    "UFL",
+    "DBR",
+    "DFR"
+   ],
+   "direction": "CCW",
+   "letters": "OK",
+   "alg": "U D' R U2 R' D R U R' F R U R U' R' F' R U R2 U'"
+  },
+  {
+   "corners": [
+    "UFL",
+    "UBR",
     "DFL"
    ],
    "direction": "CW",
    "letters": "NL",
-   "alg": "U R' D R2 U' R' F R U R' U' R' F' R U' R' D' R U CCW (QG): U R' D R U R' F R U R U' R' F' R U R2 D' R U"
+   "alg": "U R' D R2 U' R' F R U R' U' R' F' R U' R' D' R U"
   },
   {
    "corners": [
-    "UFR",
+    "UFL",
     "UBR",
     "DFL"
    ],
-   "direction": "CW",
-   "letters": "HL",
-   "alg": "U D R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' D2 U' CCW (SG): U D R U2 R' D R U R' F R U R U' R' F' R U R2 D2 U'"
+   "direction": "CCW",
+   "letters": "QG",
+   "alg": "U R' D R U R' F R U R U' R' F' R U R2 D' R U"
   },
   {
    "corners": [
-    "UFR",
     "UFL",
-    "DFL"
-   ],
-   "direction": "CW",
-   "letters": "TL",
-   "alg": "U R' U2 R' D R U' R' D' R U' R2 D2 R' U R D' R' U' R D' R' U' CCW (OG): U R D R' U R D R' U' R D2' R2' U R' D R U R' D' R U2' R U'"
-  },
-  {
-   "corners": [
-    "UFR",
     "DBL",
     "DFL"
    ],
    "direction": "CW",
-   "letters": "PL",
-   "alg": "U R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' D' U' CCW (KG): U R U2 R' D R U R' F R U R U' R' F' R U R2 D' U'"
+   "letters": "HL",
+   "alg": "U D R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' D2 U'"
   },
   {
    "corners": [
-    "UFR",
-    "UBL",
-    "DBR"
-   ],
-   "direction": "CW",
-   "letters": "HT",
-   "alg": "R' U' R D' R' U R U D R D' R2 D R U R' D' R U' R D R' U' CCW (SO): D' R' U' R D R' U R U R D' R' U R' D R U' R' D' R2 D R' U'"
-  },
-  {
-   "corners": [
-    "UFR",
-    "UBL",
-    "DFR"
-   ],
-   "direction": "CW",
-   "letters": "HP",
-   "alg": "U' R U2 R' D2 R U2 R' D2 R' D' R' U R D R' U' R2 U CCW (SK): U' R2 U R D' R' U' R D R D2 R U2 R' D2' R U2 R' U"
-  },
-  {
-   "corners": [
-    "UFR",
-    "UBR",
-    "DFR"
-   ],
-   "direction": "CW",
-   "letters": "TP",
-   "alg": "U' D' R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' U CCW (OK): U' D' R U2 R' D R U R' F R U R U' R' F' R U R2 U"
-  },
-  {
-   "corners": [
-    "UFR",
-    "UBL",
+    "UFL",
+    "DBL",
     "DFL"
    ],
-   "direction": "CW",
-   "letters": "HL",
-   "alg": "U' D R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' D2 U CCW (SG): U' D R U2 R' D R U R' F R U R U' R' F' R U R2 D2 U"
+   "direction": "CCW",
+   "letters": "SG",
+   "alg": "U D R U2 R' D R U R' F R U R U' R' F' R U R2 D2 U'"
   },
   {
    "corners": [
-    "UFR",
-    "UBR",
+    "UFL",
+    "DBR",
     "DFL"
    ],
    "direction": "CW",
    "letters": "TL",
-   "alg": "U' R' U2 R' D R U' R' D' R U' R2 D2 R' U R D' R' U' R D' R' U CCW (OG): U' R D R' U R D R' U' R D2' R2' U R' D R U R' D' R U2' R U"
+   "alg": "U R' U2 R' D R U' R' D' R U' R2 D2 R' U R D' R' U' R D' R' U'"
   },
   {
    "corners": [
-    "UFR",
     "UFL",
+    "DBR",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "OG",
+   "alg": "U R D R' U R D R' U' R D2' R2' U R' D R U R' D' R U2' R U'"
+  },
+  {
+   "corners": [
+    "UFL",
+    "DFR",
     "DFL"
    ],
    "direction": "CW",
    "letters": "PL",
-   "alg": "U' R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' D' U CCW (KG): U' R U2 R' D R U R' F R U R U' R' F' R U R2 D' U"
+   "alg": "U R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' D' U'"
   },
   {
    "corners": [
-    "UFR",
-    "UBL",
+    "UFL",
+    "DFR",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "KG",
+   "alg": "U R U2 R' D R U R' F R U R U' R' F' R U R2 D' U'"
+  },
+  {
+   "corners": [
+    "UBR",
+    "DBL",
+    "DBR"
+   ],
+   "direction": "CW",
+   "letters": "HT",
+   "alg": "R' U' R D' R' U R U D R D' R2 D R U R' D' R U' R D R' U'"
+  },
+  {
+   "corners": [
+    "UBR",
+    "DBL",
+    "DBR"
+   ],
+   "direction": "CCW",
+   "letters": "SO",
+   "alg": "D' R' U' R D R' U R U R D' R' U R' D R U' R' D' R2 D R' U'"
+  },
+  {
+   "corners": [
+    "UBR",
+    "DBL",
+    "DFR"
+   ],
+   "direction": "CW",
+   "letters": "HP",
+   "alg": "U' R U2 R' D2 R U2 R' D2 R' D' R' U R D R' U' R2 U"
+  },
+  {
+   "corners": [
+    "UBR",
+    "DBL",
+    "DFR"
+   ],
+   "direction": "CCW",
+   "letters": "SK",
+   "alg": "U' R2 U R D' R' U' R D R D2 R U2 R' D2' R U2 R' U"
+  },
+  {
+   "corners": [
+    "UBR",
+    "DBR",
+    "DFR"
+   ],
+   "direction": "CW",
+   "letters": "TP",
+   "alg": "U' D' R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' U"
+  },
+  {
+   "corners": [
+    "UBR",
+    "DBR",
+    "DFR"
+   ],
+   "direction": "CCW",
+   "letters": "OK",
+   "alg": "U' D' R U2 R' D R U R' F R U R U' R' F' R U R2 U"
+  },
+  {
+   "corners": [
+    "UBR",
+    "DBL",
+    "DFL"
+   ],
+   "direction": "CW",
+   "letters": "HL",
+   "alg": "U' D R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' D2 U"
+  },
+  {
+   "corners": [
+    "UBR",
+    "DBL",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "SG",
+   "alg": "U' D R U2 R' D R U R' F R U R U' R' F' R U R2 D2 U"
+  },
+  {
+   "corners": [
+    "UBR",
+    "DBR",
+    "DFL"
+   ],
+   "direction": "CW",
+   "letters": "TL",
+   "alg": "U' R' U2 R' D R U' R' D' R U' R2 D2 R' U R D' R' U' R D' R' U"
+  },
+  {
+   "corners": [
+    "UBR",
+    "DBR",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "OG",
+   "alg": "U' R D R' U R D R' U' R D2' R2' U R' D R U R' D' R U2' R U"
+  },
+  {
+   "corners": [
+    "UBR",
+    "DFR",
+    "DFL"
+   ],
+   "direction": "CW",
+   "letters": "PL",
+   "alg": "U' R U2 R' D R2 U' R' F R U R' U' R' F' R U' R' D' U"
+  },
+  {
+   "corners": [
+    "UBR",
+    "DFR",
+    "DFL"
+   ],
+   "direction": "CCW",
+   "letters": "KG",
+   "alg": "U' R U2 R' D R U R' F R U R U' R' F' R U R2 D' U"
+  },
+  {
+   "corners": [
+    "RFD",
+    "DFL",
     "DBL"
    ],
    "direction": "CW",
    "letters": "LH",
-   "alg": "D F2 R U' R' D' R U2 R' D R2 U' R' F R U R' U' R' F D' CCW (GS): D F' R U R U' R' F' R U R2 D' R U2 R' D R U R' F2 D'"
+   "alg": "D F2 R U' R' D' R U2 R' D R2 U' R' F R U R' U' R' F D'"
   },
   {
    "corners": [
-    "UFR",
-    "UBL",
+    "RFD",
+    "DFL",
+    "DBL"
+   ],
+   "direction": "CCW",
+   "letters": "GS",
+   "alg": "D F' R U R U' R' F' R U R2 D' R U2 R' D R U R' F2 D'"
+  },
+  {
+   "corners": [
+    "RFD",
+    "DFL",
     "DBR"
    ],
    "direction": "CW",
    "letters": "LT",
-   "alg": "F2 R U' R' D' R U2 R' D R2 U' R' F R U R' U' R' F CCW (GO): F' R U R U' R' F' R U R2 D' R U2 R' D R U R' F2"
+   "alg": "F2 R U' R' D' R U2 R' D R2 U' R' F R U R' U' R' F"
   },
   {
    "corners": [
-    "UFR",
-    "UBR",
+    "RFD",
+    "DFL",
+    "DBR"
+   ],
+   "direction": "CCW",
+   "letters": "GO",
+   "alg": "F' R U R U' R' F' R U R2 D' R U2 R' D R U R' F2"
+  },
+  {
+   "corners": [
+    "RFD",
+    "DBL",
     "DBR"
    ],
    "direction": "CW",
    "letters": "TH",
-   "alg": "D' F2 R U' R' D' R U2 R' D R2 U' R' F R U R' U' R' F D CCW (SO): D' F' R U R U' R' F' R U R2 D' R U2 R' D R U R' F2 D"
+   "alg": "D' F2 R U' R' D' R U2 R' D R2 U' R' F R U R' U' R' F D"
   },
   {
    "corners": [
-    "UFR",
-    "UBL",
+    "RFD",
+    "DBL",
+    "DBR"
+   ],
+   "direction": "CCW",
+   "letters": "SO",
+   "alg": "D' F' R U R U' R' F' R U R2 D' R U2 R' D R U R' F2 D"
+  },
+  {
+   "corners": [
+    "FDL",
+    "DBL",
     "DBR"
    ],
    "direction": "CW",
    "letters": "TH",
-   "alg": "D2 F2 R U' R' D' R U2 R' D R2 U' R' F R U R' U' R' F D2 CCW (SO): D2 F' R U R U' R' F' R U R2 D' R U2 R' D R U R' F2 D2"
+   "alg": "D2 F2 R U' R' D' R U2 R' D R2 U' R' F R U R' U' R' F D2"
+  },
+  {
+   "corners": [
+    "FDL",
+    "DBL",
+    "DBR"
+   ],
+   "direction": "CCW",
+   "letters": "SO",
+   "alg": "D2 F' R U R U' R' F' R U R2 D' R U2 R' D R U R' F2 D2"
   }
  ]
 }
