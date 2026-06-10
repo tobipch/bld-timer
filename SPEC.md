@@ -38,6 +38,15 @@ This is the model the reconstruction engine is built on.
   After all full pairs are solved, one corner target and one edge target remain. A parity
   algorithm performs a double 2-swap: buffer↔last corner target **and** two edges
   (e.g. UF↔UR) simultaneously — 2 corners + 2 edges change, nothing else.
+- **Pseudo swap (common parity technique)**: instead of solving the final edge target
+  separately and then fixing parity, the parity handling is built into the final edge target.
+  The final target is solved while the piece currently occupying the target position is sent
+  to UR — with UF as buffer this is the edge cycle **UF → target → UR**. Solvers typically
+  memorize corners first; if parity exists, edges are then memorized and executed so that the
+  solve ends with the UF and UR edges swapped, and the parity algorithm (buffer↔last corner
+  target + UF↔UR) finishes everything. For the engine this final pseudo-swap commutator is
+  still a clean edge 3-cycle (target, UR) — it is detected normally and labeled as a
+  pseudo-swap when corner parity is pending and the cycle ends in the parity edge slot.
 - **Flips**: an edge in its correct position but flipped is solved by a 2-flip algorithm:
   flips exactly two edges in place (permutation unchanged).
 - **Twists**: a corner in its correct position but twisted is solved by a 2-twist (one cw +
@@ -92,7 +101,7 @@ IDLE ──connect──▶ AWAIT_SOLVED ──cube solved──▶ SCRAMBLING �
   - the engine re-plans: after wrong moves it computes the remaining sequence from the
     current state rather than forcing undo-everything.
 - **READY**: cube matches scramble. Big "ready" indicator. Space (with configurable hold
-  time, default 300 ms, 0 = instant) starts the solve.
+  time, default 0 ms = instant) starts the solve.
 - **MEMO**: timer runs, phase shown as MEMO. No cube moves expected. First cube move event →
   memo time is frozen (`memo = firstMoveTimestamp − startTimestamp`) and phase becomes EXEC.
   Pressing space during MEMO ends the solve as **DNF** (no execution).
@@ -139,7 +148,10 @@ Given the scrambled start state and the timestamped move sequence of the executi
    - compute the letter pair at sticker level (where the buffer sticker went = first letter,
      where that sticker's content went = second letter),
    - classify: edge/corner commutator (+ which buffer), parity (+ which corner target & edge
-     swap), 2-flip, 2/3-twist (+ stickers & directions), LTCT (+ targets & twist).
+     swap), 2-flip, 2/3-twist (+ stickers & directions), LTCT (+ targets & twist),
+   - mark an edge commutator as **pseudo-swap** when the corner state still carries a pending
+     parity 2-swap and the cycle's second target is the parity edge slot (UR for UF buffer) —
+     displayed as "final target X (pseudo swap)" rather than a plain letter pair.
 4. **DNF analysis**: if the solve ended unsolved (or segmentation cannot explain the full
    sequence), report the longest valid prefix segmentation, then show *where it broke*:
    the move index of the last good checkpoint, the moves after it, and the state diff that
@@ -210,9 +222,14 @@ Per session and all-time (sessions: simple named lists, default "Session 1", swi
 
 - **Letter scheme editor**: 24 corner stickers + 24 edge stickers, Speffz default, persisted;
   same interaction style as ltct-trainer's `LetterSchemeEditor`.
+- **Cube orientation**: free-text rotation sequence (e.g. `x y`), exactly as in
+  ltct-trainer's settings (`cubeOrientation`, default empty = white top / green front).
+  Defines the frame in which letters, buffers, and the scramble display are interpreted —
+  the reconstruction engine and scramble follow-along both work in this rotated frame.
 - **Buffer priority order** (edges and corners) for floating-buffer labeling — defaults to
   Tobias' order from §1.2, reorderable.
-- **Timer**: space hold duration, show/hide running time, show time during memo y/n.
+- **Timer**: space hold duration (default 0 ms), show/hide running time, show time during
+  memo y/n.
 - **Display**: dark/light theme.
 - All settings persisted locally.
 
@@ -260,7 +277,7 @@ Each milestone lands as working, committed increments on the feature branch.
 
 ## 9. Defaults chosen (flag if wrong)
 
-- Space **hold 300 ms** to start (configurable, 0 = instant).
+- Space **hold 0 ms** to start, i.e. instant (configurable).
 - Space during MEMO = DNF.
 - Solved in any orientation counts as solved.
 - Sessions exist but a single default session is created; stats default to current session
