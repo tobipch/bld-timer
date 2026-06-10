@@ -814,3 +814,36 @@ select:focus {
   gap: 10px;
   margin: 12px 0;
 }
+
+/* ---- mistake diagnosis ---- */
+
+.diagnosis {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.diag-head {
+  font-size: 14px;
+}
+
+.diag-hypo {
+  border-left: 3px solid var(--accent-dim);
+  padding-left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recon-step.ghost {
+  opacity: 0.65;
+}
+
+.step-noop-row .step-kind {
+  color: var(--text-dim);
+}
+
+.recon-leftover {
+  margin-top: 6px;
+  font-size: 13px;
+}

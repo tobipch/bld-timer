@@ -146,3 +146,80 @@ describe("reconstructSolve", () => {
     expect(rec.steps).toHaveLength(0);
   });
 });
+
+describe("mistake diagnosis", () => {
+  it("a forgotten comm is reported as the missing case", () => {
+    // scramble expects three cases, only two are executed
+    const perAlg = [EDGE_COMM_1, EDGE_COMM_2, CORNER_COMM_1].map((a) => algToOuterMoves(a));
+    const start = applyMoves(solvedState(), invertOuterMoves(perAlg.flat()));
+    const moves: TimedMove[] = [];
+    let t = 1000;
+    for (const algMoves of perAlg.slice(0, 2)) {
+      t += 900;
+      for (const m of algMoves) {
+        moves.push({ move: m, t });
+        t += 150;
+      }
+    }
+    const rec = reconstructSolve(start, moves, buffers);
+    expect(rec.solved).toBe(false);
+    expect(rec.diagnosis?.kind).toBe("missing-case");
+    expect(rec.diagnosis?.missing?.type).toBe("cornerComm");
+  });
+
+  it("an inverted comm is recognized as such", () => {
+    // the scramble expects EDGE_COMM_1, the user executes its inverse
+    const intended = algToOuterMoves(EDGE_COMM_1);
+    const start = applyMoves(solvedState(), invertOuterMoves(intended));
+    const executed = invertOuterMoves(intended);
+    const moves: TimedMove[] = executed.map((m, i) => ({ move: m, t: 1000 + i * 150 }));
+    const rec = reconstructSolve(start, moves, buffers);
+    expect(rec.solved).toBe(false);
+    expect(rec.diagnosis?.kind).toBe("inverted-case");
+    expect(rec.diagnosis?.invertedStepIdx).toBe(0);
+    expect(rec.diagnosis?.missing?.type).toBe("edgeComm");
+  });
+
+  it("a single wrong move is located, with the rest validated", () => {
+    const { start, moves } = makeSolve([EDGE_COMM_1, CORNER_COMM_1]);
+    // flip the direction of the 4th move of the first comm
+    const wrong = moves.map((m, i) =>
+      i === 3 ? { ...m, move: { ...m.move, amount: ((4 - m.move.amount) % 4) as 1 | 2 | 3 } } : m,
+    );
+    const rec = reconstructSolve(start, wrong, buffers);
+    expect(rec.solved).toBe(false);
+    expect(rec.diagnosis?.kind).toBe("small-mistake");
+    expect(rec.diagnosis?.atMoveIdx).toBe(3);
+    expect(rec.diagnosis?.played).toEqual(wrong[3].move);
+    expect(rec.diagnosis?.shouldHave).toEqual(moves[3].move);
+    expect(rec.diagnosis?.hypothetical?.solved).toBe(true);
+    const hypoCases = rec.diagnosis!.hypothetical!.steps.filter((s) => s.kind === "case");
+    expect(hypoCases.map((s) => s.primitive!.type)).toEqual(["edgeComm", "cornerComm"]);
+  });
+
+  it("an extra stray move is located", () => {
+    const { start, moves } = makeSolve([EDGE_COMM_1, CORNER_COMM_1]);
+    const stray: TimedMove = { move: { face: "F", amount: 1 }, t: moves[2].t + 50 };
+    const withStray = [...moves.slice(0, 3), stray, ...moves.slice(3)];
+    const rec = reconstructSolve(start, withStray, buffers);
+    expect(rec.solved).toBe(false);
+    expect(rec.diagnosis?.kind).toBe("small-mistake");
+    expect(rec.diagnosis?.atMoveIdx).toBe(3);
+    expect(rec.diagnosis?.played).toEqual(stray.move);
+    expect(rec.diagnosis?.shouldHave).toBeNull();
+    expect(rec.diagnosis?.hypothetical?.solved).toBe(true);
+  });
+
+  it("a missing move is located and supplied", () => {
+    const { start, moves } = makeSolve([EDGE_COMM_1, CORNER_COMM_1]);
+    const dropped = moves[2];
+    const withoutMove = [...moves.slice(0, 2), ...moves.slice(3)];
+    const rec = reconstructSolve(start, withoutMove, buffers);
+    expect(rec.solved).toBe(false);
+    expect(rec.diagnosis?.kind).toBe("small-mistake");
+    expect(rec.diagnosis?.atMoveIdx).toBe(2);
+    expect(rec.diagnosis?.played).toBeNull();
+    expect(rec.diagnosis?.shouldHave).toEqual(dropped.move);
+    expect(rec.diagnosis?.hypothetical?.solved).toBe(true);
+  });
+});
