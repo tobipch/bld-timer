@@ -53,6 +53,38 @@ describe("ScrambleFollower", () => {
     expect(f.isDone).toBe(true);
   });
 
+  it("recognizes the target state no matter which path reaches it", () => {
+    // expected D U F; user turns D' by mistake, continues with U,
+    // then fixes the D face the long way around (two more D')
+    const f = new ScrambleFollower("D U F");
+    f.onMove({ face: "D", amount: 3 });
+    f.onMove({ face: "U", amount: 1 });
+    f.onMove({ face: "D", amount: 3 });
+    f.onMove({ face: "D", amount: 3 });
+    // net effect equals D U — snapped to two moves done, no corrections
+    expect(f.display().tokens.map((t) => t.status)).toEqual(["done", "done", "current"]);
+    expect(f.display().corrections).toEqual([]);
+    f.onMove({ face: "F", amount: 1 });
+    expect(f.isDone).toBe(true);
+  });
+
+  it("accepts commuting moves done in the wrong order", () => {
+    const f = new ScrambleFollower("U D F");
+    f.onMove({ face: "D", amount: 1 }); // D before U
+    expect(f.display().corrections).toEqual(["D'"]);
+    f.onMove({ face: "U", amount: 1 }); // now the state matches U D
+    expect(f.display().tokens.map((t) => t.status)).toEqual(["done", "done", "current"]);
+  });
+
+  it("simplifies corrections across commuting opposite faces", () => {
+    const f = new ScrambleFollower("F2 R");
+    f.onMove({ face: "U", amount: 2 });
+    f.onMove({ face: "D", amount: 2 });
+    f.onMove({ face: "U", amount: 1 });
+    // U2 D2 U nets to U' D2 -> undo with D2 U
+    expect(f.display().corrections).toEqual(["D2", "U"]);
+  });
+
   it("matches a 3BLD scramble with a wide-move orientation suffix", () => {
     const f = new ScrambleFollower("R U Rw2 Uw'");
     // Rw2 is reported as L2, then Uw' as U' through the x2-shifted frame? No:

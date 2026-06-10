@@ -2,11 +2,11 @@ import {
   formatToken,
   invertOuterMoves,
   parseAlg,
-  simplifyOuterMoves,
   tokensToOuterMoves,
   type AlgToken,
 } from "../cube/alg";
-import type { OuterMove } from "../cube/state";
+import { applyMove, solvedState, statesEqual, type CubeState, type OuterMove } from "../cube/state";
+import type { Face } from "../cube/geometry";
 
 /**
  * Scramble follow-along (ltct-trainer style): track progress through the
@@ -29,14 +29,39 @@ export interface FollowDisplay {
   done: boolean;
 }
 
-function sameMove(a: OuterMove, b: OuterMove): boolean {
-  return a.face === b.face && a.amount === b.amount;
+const AXIS: Record<Face, number> = { U: 0, D: 0, L: 1, R: 1, F: 2, B: 2 };
+
+/**
+ * Merge moves treating opposite faces as commuting: within a run of moves on
+ * one axis, same-face turns combine regardless of order (U D U2 D' U' -> U' D...
+ * collapses to its net effect).
+ */
+function simplifyAxisMoves(moves: OuterMove[]): OuterMove[] {
+  const out: OuterMove[] = [];
+  for (const m of moves) {
+    let merged = false;
+    for (let i = out.length - 1; i >= 0; i--) {
+      if (AXIS[out[i].face] !== AXIS[m.face]) break;
+      if (out[i].face === m.face) {
+        const a = (out[i].amount + m.amount) % 4;
+        if (a === 0) out.splice(i, 1);
+        else out[i].amount = a as 1 | 2 | 3;
+        merged = true;
+        break;
+      }
+    }
+    if (!merged) out.push({ ...m });
+  }
+  return out;
 }
 
 export class ScrambleFollower {
   readonly tokens: AlgToken[];
   readonly expected: OuterMove[];
   private readonly tokenOf: number[];
+  /** cube state after each expected move; the cube starts solved */
+  private readonly waypoints: CubeState[];
+  private current: CubeState = solvedState();
   private pointer = 0;
   private deviation: OuterMove[] = [];
 
@@ -45,24 +70,28 @@ export class ScrambleFollower {
     const { moves, tokenOf } = tokensToOuterMoves(this.tokens);
     this.expected = moves;
     this.tokenOf = tokenOf;
+    this.waypoints = [solvedState()];
+    for (const m of moves) {
+      this.waypoints.push(applyMove(this.waypoints[this.waypoints.length - 1], m));
+    }
   }
 
+  /**
+   * Progress is judged by state, not by move history: whatever path the
+   * cube takes, the moment it reaches a state along the scramble we snap to
+   * that point (preferring the furthest). The deviation list only feeds the
+   * corrections display.
+   */
   onMove(m: OuterMove): void {
-    const tentative = simplifyOuterMoves([...this.deviation, m]);
-    if (tentative.length === 0) {
-      this.deviation = [];
-      return;
+    this.current = applyMove(this.current, m);
+    for (let p = this.waypoints.length - 1; p >= 0; p--) {
+      if (statesEqual(this.current, this.waypoints[p])) {
+        this.pointer = p;
+        this.deviation = [];
+        return;
+      }
     }
-    if (
-      tentative.length === 1 &&
-      this.pointer < this.expected.length &&
-      sameMove(tentative[0], this.expected[this.pointer])
-    ) {
-      this.pointer++;
-      this.deviation = [];
-      return;
-    }
-    this.deviation = tentative;
+    this.deviation = simplifyAxisMoves([...this.deviation, m]);
   }
 
   get isDone(): boolean {
