@@ -129,8 +129,14 @@ type FaceMap = Record<Face, Face>;
 
 const ID_MAP: FaceMap = { U: "U", D: "D", L: "L", R: "R", F: "F", B: "B" };
 
+export type { FaceMap };
+
+export function identityFrame(): FaceMap {
+  return { ...ID_MAP };
+}
+
 /** After rotation r (face map m), the new frame is newFrame[m[f]] = oldFrame[f]. */
-function rotateFrame(frame: FaceMap, rot: "x" | "y" | "z", amount: number): FaceMap {
+export function rotateFrame(frame: FaceMap, rot: "x" | "y" | "z", amount: number): FaceMap {
   let out = frame;
   const m = ROTATION_FACE_MAPS[rot];
   const n = ((amount % 4) + 4) % 4;
@@ -143,7 +149,7 @@ function rotateFrame(frame: FaceMap, rot: "x" | "y" | "z", amount: number): Face
 }
 
 /** Per-slice behaviour: reported outer moves (per +1 amount) and core rotation. */
-const SLICE_DEF: Record<string, { moves: [Face, number][]; rot: "x" | "y" | "z"; rotAmount: number }> = {
+export const SLICE_DEF: Record<string, { moves: [Face, number][]; rot: "x" | "y" | "z"; rotAmount: number }> = {
   // M follows L: core rotates x', R and L' are reported.
   M: { moves: [["R", 1], ["L", -1]], rot: "x", rotAmount: -1 },
   // E follows D: core rotates y', U and D' are reported.

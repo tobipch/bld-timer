@@ -1,5 +1,6 @@
 import { createMemo, For, Show } from "solid-js";
 import { outerMovesToString } from "~/lib/cube/alg";
+import { humanizeMoves } from "~/lib/cube/humanize";
 import { describePrimitive, makeOrientationMaps } from "~/lib/engine/present";
 import type { Reconstruction } from "~/lib/engine/reconstruct";
 import { formatMs } from "~/lib/stats";
@@ -35,7 +36,7 @@ export function ReconstructionView(props: { rec: Reconstruction; title?: string 
                     <span class="step-label">
                       {step.moves.length} moves not forming any case
                     </span>
-                    <span class="step-moves mono">{outerMovesToString(step.moves)}</span>
+                    <span class="step-moves mono">{humanizeMoves(step.moves, settings.orientation)}</span>
                   </li>
                 );
               }
@@ -44,7 +45,7 @@ export function ReconstructionView(props: { rec: Reconstruction; title?: string 
                 <li class={`recon-step ${KIND_CLASS[d.kind] ?? ""}`}>
                   <span class="step-kind">{d.kind}</span>
                   <span class="step-label">{d.label}</span>
-                  <span class="step-moves mono">{outerMovesToString(step.moves)}</span>
+                  <span class="step-moves mono">{humanizeMoves(step.moves, settings.orientation)}</span>
                   <Show when={step.kind === "case"}>
                     <span class="step-times mono muted">
                       rec {formatMs(step.recogMs)} · exec {formatMs(step.execMs)}

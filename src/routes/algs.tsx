@@ -1,5 +1,7 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { aggregateCases, type CaseAgg } from "~/lib/algdb";
+import { algToOuterMoves } from "~/lib/cube/alg";
+import { humanizeMoves } from "~/lib/cube/humanize";
 import { describePrimitive, letterFor, makeOrientationMaps, userStickerName } from "~/lib/engine/present";
 import type { OrientationMaps } from "~/lib/engine/present";
 import { formatMs } from "~/lib/stats";
@@ -25,6 +27,15 @@ function commLetters(c: CaseAgg, maps: OrientationMaps): { buffer: string; l1: s
     l1: letterFor(p.targets[0], settings.letterScheme, maps),
     l2: letterFor(p.targets[1], settings.letterScheme, maps),
   };
+}
+
+/** Stored move strings are raw core-frame outer moves; show them as algs. */
+function human(moves: string): string {
+  try {
+    return humanizeMoves(algToOuterMoves(moves), settings.orientation);
+  } catch {
+    return moves;
+  }
 }
 
 function CaseDetail(props: { c: CaseAgg }) {
@@ -53,7 +64,7 @@ function CaseDetail(props: { c: CaseAgg }) {
           <For each={props.c.variants}>
             {(v) => (
               <tr>
-                <td class="mono">{v.moves}</td>
+                <td class="mono">{human(v.moves)}</td>
                 <td class="mono">{v.count}</td>
                 <td class="mono">{formatMs(v.avgExecMs)}</td>
                 <td class="mono">{formatMs(v.bestExecMs)}</td>
@@ -71,7 +82,7 @@ function CaseDetail(props: { c: CaseAgg }) {
                 <span class="mono">{formatMs(e.execMs)}</span>
                 <span class="mono muted">rec {formatMs(e.recogMs)}</span>
                 <span class="muted">{new Date(e.at).toLocaleDateString()}</span>
-                <span class="mono case-exec-moves">{e.moves}</span>
+                <span class="mono case-exec-moves">{human(e.moves)}</span>
                 <button
                   class="tl-del"
                   title="Remove this execution from the database"

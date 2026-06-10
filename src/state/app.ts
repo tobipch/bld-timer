@@ -102,11 +102,22 @@ function createApp() {
   }
 
   async function connectSmart() {
+    // btcube-web needs Web Bluetooth, which Firefox and Safari don't ship;
+    // checking first also avoids their import-time crash of the module
+    if (typeof navigator === "undefined" || !("bluetooth" in navigator) || !navigator.bluetooth) {
+      setError("This browser has no Web Bluetooth — use Chrome or Edge to connect a smart cube.");
+      return;
+    }
     try {
       const { connectSmartCubeIO } = await import("~/lib/cube-io/smart");
       wireCube(await connectSmartCubeIO());
     } catch (e) {
-      setError(`${e}`);
+      const msg = `${e}`;
+      setError(
+        /dynamically imported module|NotFoundError: .*chooser/i.test(msg)
+          ? `${msg} — if this persists, make sure you're on Chrome or Edge with Bluetooth enabled.`
+          : msg,
+      );
     }
   }
 
