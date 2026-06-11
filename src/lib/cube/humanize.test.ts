@@ -28,6 +28,15 @@ describe("humanizeMoves", () => {
     expect(humanizeMoves(pf, "z2")).toBe("[U E R: [S, R2]]");
   });
 
+  it("survives a slice pair whose layer event arrives as a split turn", () => {
+    // [R' F R, S] under z2 reports L' F L F' B D' F' D F B'; a sloppy final
+    // slice can deliver the F as F2 F'
+    const md = algToOuterMoves("z2 [R' F R, S]");
+    expect(humanizeMoves(md, "z2")).toBe("[R' F R, S]");
+    const split = [...md.slice(0, 8), { face: "F", amount: 2 }, { face: "F", amount: 3 }, md[9]] as typeof md;
+    expect(humanizeMoves(split, "z2")).toBe("[R' F R, S]");
+  });
+
   it("folds slices and restores commutator/conjugate notation", () => {
     const core = algToOuterMoves("[R2 U': [R2, S]]");
     expect(humanizeMoves(core, "")).toBe("[R2 U': [R2, S]]");

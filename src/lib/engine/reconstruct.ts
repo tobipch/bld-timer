@@ -24,9 +24,11 @@ export interface StepProgress {
   newlySolved: number;
   /** previously solved pieces (other than the buffer) this step displaced */
   broke: number;
-  /** a comm that solves nothing or breaks pieces is almost surely a mistrace */
+  /** a comm that solves nothing is almost surely a mistrace */
   suspicious: boolean;
-  /** for suspicious comms: what the state actually called for */
+  /** a full pair was available but this comm solved fewer than 2 pieces */
+  suboptimal?: boolean;
+  /** for flagged comms: what the state actually called for */
   suggestion?: Continuation;
 }
 
@@ -317,9 +319,14 @@ function annotateProgress(steps: ReconstructionStep[], states: CubeState[]) {
     const after = states[step.endIdx + 1];
     const { newlySolved, broke } = commProgress(before, after, p);
     const suspicious = newlySolved === 0;
-    step.progress = { newlySolved, broke, suspicious };
-    if (suspicious) {
-      step.progress.suggestion = continuationFor(before, p.buffer);
+    // when the buffer held an unsolved piece, the straightforward pair was
+    // available and solves two — settling for one is worth a hint (unless
+    // it's the pseudo-swap, which parks a piece by design)
+    const cont = continuationFor(before, p.buffer);
+    const suboptimal = !suspicious && cont.kind === "pair" && newlySolved < 2 && !p.pseudoSwap;
+    step.progress = { newlySolved, broke, suspicious, suboptimal };
+    if (suspicious || suboptimal) {
+      step.progress.suggestion = cont;
     }
   }
 }
@@ -411,11 +418,24 @@ function diagnoseAlgebraic(
   if (orbit !== "all" && statesEqual(prefix[k], pNeeded)) return null;
 
   const classifyTransform = (x: CubeState) => classifyDiff(diffStates(solved, x), buffers);
-  const replaceable = (i: number) => {
-    if (steps[i].kind === "unknown") return orbit === "all";
-    if (steps[i].kind !== "case") return false;
-    if (orbit === "all") return true;
-    return ORBIT_TYPES[orbit].includes(steps[i].primitive!.type);
+  // comms that made proper progress were what the solver wanted — only
+  // suspect steps that solved nothing or settled for half a pair (otherwise
+  // a forgotten flip "replaces" a perfectly good comm with an orientation-
+  // twisted variant, which is valid algebra but bad advice). Suspicious and
+  // unknown steps are strong suspects; suboptimal ones lose to an insertion
+  // explanation (a pending flip makes the last comm look suboptimal).
+  const suspectStrength = (i: number): "strong" | "weak" | null => {
+    if (steps[i].kind === "unknown") return orbit === "all" ? "strong" : null;
+    if (steps[i].kind !== "case") return null;
+    const prim = steps[i].primitive!;
+    if (orbit !== "all" && !ORBIT_TYPES[orbit].includes(prim.type)) return null;
+    if (prim.type === "cornerComm" || prim.type === "edgeComm") {
+      const p = steps[i].progress;
+      if (p?.suspicious) return "strong";
+      if (p?.suboptimal) return "weak";
+      return p ? null : "weak";
+    }
+    return "weak"; // parity/twist/flip steps carry no progress information
   };
 
   // wrong case: replace step i
@@ -423,13 +443,14 @@ function diagnoseAlgebraic(
     i: number;
     prim: Primitive;
     inverted: boolean;
+    strength: "strong" | "weak";
     score: number;
   }
   let wrong: WrongCand | null = null;
   for (let i = 0; i < k; i++) {
-    if (!replaceable(i)) continue;
-    // a suspicious comm (solved nothing / broke pieces) is the prime suspect
-    const suspicionBonus = steps[i].progress?.suspicious ? 4 : 0;
+    const strength = suspectStrength(i);
+    if (!strength) continue;
+    const suspicionBonus = strength === "strong" ? 4 : 0;
     const x = composeTransforms(
       composeTransforms(invertTransform(prefix[i]), pNeeded),
       invertTransform(suffix[i + 1]),
@@ -440,17 +461,18 @@ function diagnoseAlgebraic(
     const inverted = statesEqual(x, invertTransform(pT[i]));
     const score = (prim.type === executedType ? 2 : 0) + (inverted ? 1 : 0) + suspicionBonus;
     if (!wrong || score > wrong.score || (score === wrong.score && i > wrong.i)) {
-      wrong = { i, prim, inverted, score };
+      wrong = { i, prim, inverted, strength, score };
     }
   }
-  if (wrong) {
-    return {
-      kind: "wrong-case",
-      wrongStepIdx: wrong.i,
-      shouldHaveBeen: wrong.prim,
-      invertedExecution: wrong.inverted,
-    };
-  }
+  const wrongFinding: MistakeDiagnosis | null = wrong
+    ? {
+        kind: "wrong-case",
+        wrongStepIdx: wrong.i,
+        shouldHaveBeen: wrong.prim,
+        invertedExecution: wrong.inverted,
+      }
+    : null;
+  if (wrongFinding && wrong!.strength === "strong") return wrongFinding;
 
   // forgotten case: insert X at position p (after step p-1)
   interface InsertCand {
@@ -467,16 +489,18 @@ function diagnoseAlgebraic(
     const prim = classifyTransform(x);
     if (!prim || prim.type === "noop") continue;
     // "fits" best next to steps of the same type; cases of a type are
-    // executed in runs, so following one of its own kind weighs more
+    // executed in runs, so following one of its own kind weighs more. On
+    // ties take the latest position: a case with no kin (a lone flip) was
+    // simply never done, which reads best at the end
     const prevType = p > 0 ? steps[p - 1].primitive?.type : undefined;
     const nextType = p < k ? steps[p].primitive?.type : undefined;
     const score = (prevType === prim.type ? 2 : 0) + (nextType === prim.type ? 1 : 0);
-    if (!insert || score > insert.score) insert = { p, prim, score };
+    if (!insert || score >= insert.score) insert = { p, prim, score };
   }
   if (insert) {
     return { kind: "missing-case", missing: insert.prim, insertAfterStepIdx: insert.p - 1 };
   }
-  return null;
+  return wrongFinding;
 }
 
 function diagnoseSmallMistake(

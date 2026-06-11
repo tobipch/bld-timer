@@ -69,6 +69,7 @@ function StepItem(props: { step: ReconstructionStep; ghost?: boolean; flagged?: 
   const maps = makeOrientationMaps(settings.orientation);
   const d = describePrimitive(props.step.primitive!, settings.letterScheme, maps);
   const suspicious = () => props.step.progress?.suspicious && !props.ghost;
+  const suboptimal = () => props.step.progress?.suboptimal && !props.ghost;
   return (
     <li
       class={`recon-step ${KIND_CLASS[d.kind] ?? ""}`}
@@ -83,11 +84,12 @@ function StepItem(props: { step: ReconstructionStep; ghost?: boolean; flagged?: 
       <Show when={props.flagged}>
         <span class="bad step-flag">⟵ wrong</span>
       </Show>
-      <Show when={suspicious()}>
+      <Show when={suspicious() || suboptimal()}>
         <div class="step-suspicion warn">
-          ⚠ {props.step.progress!.newlySolved === 0 ? "solved no piece" : ""}
-          {props.step.progress!.newlySolved === 0 && props.step.progress!.broke > 0 ? ", " : ""}
-          {props.step.progress!.broke > 0 ? `displaced ${props.step.progress!.broke} solved` : ""}
+          ⚠{" "}
+          {suspicious()
+            ? "solved no piece"
+            : `solved only ${props.step.progress!.newlySolved} piece — a full pair was available`}
           <Show when={props.step.progress!.suggestion}>
             {" — "}
             {continuationText(props.step.progress!.suggestion!, maps)}

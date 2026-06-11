@@ -180,6 +180,45 @@ describe("progress-aware parsing", () => {
 });
 
 describe("mistake diagnosis", () => {
+  it("a forgotten lone flip is reported at the end", () => {
+    const FLIP = "R' F R U' M' U2 M U' S R' F' R S'"; // UF & UR flip
+    const perAlg = [EDGE_COMM_1, CORNER_COMM_1, FLIP].map((a) => algToOuterMoves(a));
+    const start = applyMoves(solvedState(), invertOuterMoves(perAlg.flat()));
+    const moves: TimedMove[] = [];
+    let t = 1000;
+    for (const algMoves of perAlg.slice(0, 2)) {
+      t += 900;
+      for (const m of algMoves) {
+        moves.push({ move: m, t });
+        t += 150;
+      }
+    }
+    const rec = reconstructSolve(start, moves, buffers);
+    expect(rec.diagnosis?.kind).toBe("missing-case");
+    expect(rec.diagnosis?.missing?.type).toBe("flip");
+    // no flip steps exist to sit next to, so it lands at the very end
+    expect(rec.diagnosis?.insertAfterStepIdx).toBe(1);
+  });
+
+  it("flags a comm that takes one target when the full pair was available", () => {
+    // state calls for EDGE_COMM_1 (UF: UR UB); the user shoots UR but takes
+    // the wrong second target (LU), solving only one piece
+    const intended = algToOuterMoves(EDGE_COMM_1);
+    const start = applyMoves(solvedState(), invertOuterMoves(intended));
+    const detour = algToOuterMoves("[S', L F' L']"); // UF: UR LU (BE)
+    const moves: TimedMove[] = detour.map((m, i) => ({ move: m, t: 1000 + i * 150 }));
+    const rec = reconstructSolve(start, moves, buffers);
+    const cases = rec.steps.filter((s) => s.kind === "case");
+    expect(cases).toHaveLength(1);
+    const pr = cases[0].progress!;
+    expect(pr.newlySolved).toBe(1);
+    expect(pr.suspicious).toBe(false);
+    expect(pr.suboptimal).toBe(true);
+    expect(pr.suggestion?.kind).toBe("pair");
+    if (pr.suggestion?.kind === "pair") {
+      expect(pr.suggestion.pair.map(refName)).toEqual(["UR", "UB"]);
+    }
+  });
   it("a forgotten comm is reported as the missing case", () => {
     // scramble expects three cases, only two are executed
     const perAlg = [EDGE_COMM_1, EDGE_COMM_2, CORNER_COMM_1].map((a) => algToOuterMoves(a));

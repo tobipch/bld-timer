@@ -2,6 +2,7 @@ import {
   identityFrame,
   parseAlg,
   rotateFrame,
+  simplifyOuterMoves,
   SLICE_DEF,
   type FaceMap,
 } from "./alg";
@@ -96,6 +97,15 @@ function foldVariants(moves: OuterMove[], orientation: string, cap = 64): HumanT
       return;
     }
     const cur = work[i];
+    // a sloppy turn can split one layer event in two (F2 F' instead of F):
+    // merging adjacent same-face turns is explored as its own branch, since
+    // either reading can be the one that folds/factors
+    if (i + 1 < work.length && work[i + 1].face === cur.face) {
+      const sum = (cur.amount + work[i + 1].amount) % 4;
+      const mergedWork = work.slice();
+      mergedWork.splice(i, 2, ...(sum === 0 ? [] : [{ face: cur.face, amount: sum as 1 | 2 | 3 }]));
+      go(mergedWork, i, frame, acc);
+    }
     // find the slice partner: the complementary opposite-face turn, allowing
     // one same-axis move in between (M2 may arrive as R R L' L' — moves on
     // the same axis commute, so the pair can be pulled together)

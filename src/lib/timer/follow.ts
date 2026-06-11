@@ -2,11 +2,11 @@ import {
   formatToken,
   invertOuterMoves,
   parseAlg,
+  simplifyAxisMoves,
   tokensToOuterMoves,
   type AlgToken,
 } from "../cube/alg";
 import { applyMove, solvedState, statesEqual, type CubeState, type OuterMove } from "../cube/state";
-import type { Face } from "../cube/geometry";
 
 /**
  * Scramble follow-along (ltct-trainer style): track progress through the
@@ -27,32 +27,6 @@ export interface FollowDisplay {
   /** a half-turn in progress (first quarter done) — not an error */
   partial: boolean;
   done: boolean;
-}
-
-const AXIS: Record<Face, number> = { U: 0, D: 0, L: 1, R: 1, F: 2, B: 2 };
-
-/**
- * Merge moves treating opposite faces as commuting: within a run of moves on
- * one axis, same-face turns combine regardless of order (U D U2 D' U' -> U' D...
- * collapses to its net effect).
- */
-function simplifyAxisMoves(moves: OuterMove[]): OuterMove[] {
-  const out: OuterMove[] = [];
-  for (const m of moves) {
-    let merged = false;
-    for (let i = out.length - 1; i >= 0; i--) {
-      if (AXIS[out[i].face] !== AXIS[m.face]) break;
-      if (out[i].face === m.face) {
-        const a = (out[i].amount + m.amount) % 4;
-        if (a === 0) out.splice(i, 1);
-        else out[i].amount = a as 1 | 2 | 3;
-        merged = true;
-        break;
-      }
-    }
-    if (!merged) out.push({ ...m });
-  }
-  return out;
 }
 
 export class ScrambleFollower {

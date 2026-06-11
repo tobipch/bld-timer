@@ -248,6 +248,32 @@ export function invertOuterMoves(moves: OuterMove[]): OuterMove[] {
     .map((m) => ({ face: m.face, amount: ((4 - m.amount) % 4) as 1 | 2 | 3 }));
 }
 
+const AXIS_OF: Record<Face, number> = { U: 0, D: 0, L: 1, R: 1, F: 2, B: 2 };
+
+/**
+ * Merge moves treating opposite faces as commuting: within a run of moves on
+ * one axis, same-face turns combine regardless of order (R L' R nets to
+ * R2 L'). Sound because opposite-layer turns commute.
+ */
+export function simplifyAxisMoves(moves: OuterMove[]): OuterMove[] {
+  const out: OuterMove[] = [];
+  for (const m of moves) {
+    let merged = false;
+    for (let i = out.length - 1; i >= 0; i--) {
+      if (AXIS_OF[out[i].face] !== AXIS_OF[m.face]) break;
+      if (out[i].face === m.face) {
+        const a = (out[i].amount + m.amount) % 4;
+        if (a === 0) out.splice(i, 1);
+        else out[i].amount = a as 1 | 2 | 3;
+        merged = true;
+        break;
+      }
+    }
+    if (!merged) out.push({ ...m });
+  }
+  return out;
+}
+
 /** Merge adjacent same-face moves and drop no-ops (for correction display). */
 export function simplifyOuterMoves(moves: OuterMove[]): OuterMove[] {
   const out: OuterMove[] = [];
