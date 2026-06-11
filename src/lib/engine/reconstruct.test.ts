@@ -148,6 +148,37 @@ describe("reconstructSolve", () => {
   });
 });
 
+describe("progress-aware parsing", () => {
+  it("keeps a conjugated comm whole instead of carving out its inner comm", () => {
+    // [D: [R' D' R, U]] executed with an R R' fidget after the setup D,
+    // followed by a comm that itself starts with D. A naive parse strips the
+    // D...D' conjugation (stray D + inner comm + cancelled D'·D) — but the
+    // inner comm alone solves nothing, so the conjugated parse must win.
+    const CONJ = "[D: [R' D' R, U]]"; // UFR: UBR FDL (BL)
+    const NEXT = "[D: [U', R D' R']]"; // starts with D
+    const conjMoves = algToOuterMoves(CONJ);
+    const nextMoves = algToOuterMoves(NEXT);
+    const start = applyMoves(solvedState(), invertOuterMoves([...conjMoves, ...nextMoves]));
+    const executed = [
+      conjMoves[0], // setup D
+      { face: "R", amount: 1 } as const,
+      { face: "R", amount: 3 } as const, // fidget
+      ...conjMoves.slice(1),
+      ...nextMoves,
+    ];
+    const moves: TimedMove[] = executed.map((m, i) => ({ move: m, t: 1000 + i * 150 }));
+    const rec = reconstructSolve(start, moves, buffers);
+    expect(rec.solved).toBe(true);
+    expect(rec.steps.some((s) => s.kind === "unknown")).toBe(false);
+    const cases = rec.steps.filter((s) => s.kind === "case");
+    expect(cases).toHaveLength(2);
+    expect(cases.every((s) => !s.progress?.suspicious)).toBe(true);
+    const first = cases[0].primitive!;
+    if (first.type !== "cornerComm") throw new Error("unreachable");
+    expect(first.targets.map(refName)).toEqual(["UBR", "FDL"]);
+  });
+});
+
 describe("mistake diagnosis", () => {
   it("a forgotten comm is reported as the missing case", () => {
     // scramble expects three cases, only two are executed

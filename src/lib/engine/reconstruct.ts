@@ -91,6 +91,8 @@ const DEFAULT_GAP_MS = 350;
 
 interface DpEntry {
   unexplained: number;
+  /** case segments that make no solving progress (likely artifacts) */
+  suspicious: number;
   /** big time gaps swallowed inside explained segments */
   gaps: number;
   segments: number;
@@ -100,8 +102,46 @@ interface DpEntry {
 
 function better(a: DpEntry, b: DpEntry): boolean {
   if (a.unexplained !== b.unexplained) return a.unexplained < b.unexplained;
+  // gaps outrank suspicion: fusing two cases across a thinking pause can
+  // produce a clean, progress-making composite (two 3-cycles sharing the
+  // buffer compose into another 3-cycle) — the pause is the tell
   if (a.gaps !== b.gaps) return a.gaps < b.gaps;
+  if (a.suspicious !== b.suspicious) return a.suspicious < b.suspicious;
   return a.segments < b.segments;
+}
+
+/** Solving progress a comm makes (its own buffer slot excluded). */
+function commProgress(
+  before: CubeState,
+  after: CubeState,
+  prim: Extract<Primitive, { type: "cornerComm" | "edgeComm" }>,
+): { newlySolved: number; broke: number } {
+  const isCorner = prim.type === "cornerComm";
+  const permB = isCorner ? before.cp : before.ep;
+  const oriB = isCorner ? before.co : before.eo;
+  const permA = isCorner ? after.cp : after.ep;
+  const oriA = isCorner ? after.co : after.eo;
+  const count = isCorner ? 8 : 12;
+  let newlySolved = 0;
+  let broke = 0;
+  for (let s = 0; s < count; s++) {
+    if (s === prim.buffer.slot) continue;
+    const wasSolved = permB[s] === s && oriB[s] === 0;
+    const nowSolved = permA[s] === s && oriA[s] === 0;
+    if (!wasSolved && nowSolved) newlySolved++;
+    if (wasSolved && !nowSolved) broke++;
+  }
+  return { newlySolved, broke };
+}
+
+/**
+ * A comm that solves nothing is almost surely a mistrace. Displacing solved
+ * pieces alone is NOT suspicious: with parity pending, the final comms
+ * legitimately park a solved piece for the parity alg to restore.
+ */
+function isSuspiciousComm(before: CubeState, after: CubeState, prim: Primitive): boolean {
+  if (prim.type !== "cornerComm" && prim.type !== "edgeComm") return false;
+  return commProgress(before, after, prim).newlySolved === 0;
 }
 
 /**
@@ -137,11 +177,12 @@ export function reconstructSolve(
   const gapsInside = (j: number, i: number) => (i - j < 2 ? 0 : gapPrefix[i] - gapPrefix[j + 1]);
 
   const dp: DpEntry[] = new Array(n + 1);
-  dp[0] = { unexplained: 0, gaps: 0, segments: 0, prev: -1, prim: null };
+  dp[0] = { unexplained: 0, suspicious: 0, gaps: 0, segments: 0, prev: -1, prim: null };
   for (let i = 1; i <= n; i++) {
     // fallback: previous best plus one unexplained move
     let best: DpEntry = {
       unexplained: dp[i - 1].unexplained + 1,
+      suspicious: dp[i - 1].suspicious,
       gaps: dp[i - 1].gaps,
       segments: dp[i - 1].segments,
       prev: i - 1,
@@ -152,6 +193,9 @@ export function reconstructSolve(
       if (!prim) continue;
       const cand: DpEntry = {
         unexplained: dp[j].unexplained,
+        // a "comm" that solves nothing is more likely a parsing artifact
+        // than something a solver actually intended
+        suspicious: dp[j].suspicious + (isSuspiciousComm(states[j], states[i], prim) ? 1 : 0),
         gaps: dp[j].gaps + gapsInside(j, i),
         segments: dp[j].segments + 1,
         prev: j,
@@ -271,22 +315,8 @@ function annotateProgress(steps: ReconstructionStep[], states: CubeState[]) {
     if (!p || (p.type !== "cornerComm" && p.type !== "edgeComm")) continue;
     const before = states[step.startIdx];
     const after = states[step.endIdx + 1];
-    const isCorner = p.type === "cornerComm";
-    const permB = isCorner ? before.cp : before.ep;
-    const oriB = isCorner ? before.co : before.eo;
-    const permA = isCorner ? after.cp : after.ep;
-    const oriA = isCorner ? after.co : after.eo;
-    const count = isCorner ? 8 : 12;
-    let newlySolved = 0;
-    let broke = 0;
-    for (let s = 0; s < count; s++) {
-      if (s === p.buffer.slot) continue;
-      const wasSolved = permB[s] === s && oriB[s] === 0;
-      const nowSolved = permA[s] === s && oriA[s] === 0;
-      if (!wasSolved && nowSolved) newlySolved++;
-      if (wasSolved && !nowSolved) broke++;
-    }
-    const suspicious = newlySolved === 0 || broke > 0;
+    const { newlySolved, broke } = commProgress(before, after, p);
+    const suspicious = newlySolved === 0;
     step.progress = { newlySolved, broke, suspicious };
     if (suspicious) {
       step.progress.suggestion = continuationFor(before, p.buffer);

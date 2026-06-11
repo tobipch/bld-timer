@@ -10,11 +10,17 @@ import { settings } from "~/state/settings";
 
 function continuationText(c: Continuation, maps: OrientationMaps): string {
   const L = (r: Parameters<typeof letterFor>[0]) => letterFor(r, settings.letterScheme, maps);
+  const routes = (c.kind === "pair" || c.kind === "closes") && c.flipRoutes?.length
+    ? ` — or break into the flip: ${c.flipRoutes
+        .slice(0, 2)
+        .map((route) => route.map(([a, b]) => `${L(a)}${L(b)}`).join(" "))
+        .join(" / ")}`
+    : "";
   switch (c.kind) {
     case "pair":
-      return `the state called for ${L(c.pair[0])}${L(c.pair[1])}`;
+      return `the state called for ${L(c.pair[0])}${L(c.pair[1])}${routes}`;
     case "closes":
-      return `the state called for ${L(c.first)}, closing the cycle (then break to an unsolved piece)`;
+      return `the state called for ${L(c.first)}, closing the cycle (then break to an unsolved piece)${routes}`;
     case "breaks": {
       const opts = c.options.slice(0, 5).map(([a, b]) => `${L(a)}${L(b)}`);
       return `the buffer was solved — a cycle break was needed, e.g. ${opts.join(", ")}${
@@ -35,13 +41,16 @@ const KIND_CLASS: Record<string, string> = {
   "No-op": "step-noop",
 };
 
-function StepItem(props: { step: ReconstructionStep; ghost?: boolean; flagged?: boolean }) {
+function StepItem(props: { step: ReconstructionStep; ghost?: boolean; flagged?: boolean; broken?: boolean }) {
   if (props.step.kind === "unknown") {
     return (
-      <li class="recon-step step-unknown" classList={{ ghost: props.ghost }}>
+      <li class="recon-step step-unknown" classList={{ ghost: props.ghost, "step-flagged": props.broken }}>
         <span class="step-kind">?</span>
         <span class="step-label">{props.step.moves.length} moves not forming any case</span>
         <span class="step-moves mono">{humanizeMovesVerbatim(props.step.moves, settings.orientation)}</span>
+        <Show when={props.broken}>
+          <span class="bad step-flag">⟵ solve breaks down from here</span>
+        </Show>
       </li>
     );
   }
@@ -236,6 +245,14 @@ export function ReconstructionView(props: {
 
   const algCount = createMemo(() => props.rec.steps.filter((s) => s.kind === "case").length);
 
+  /** the unknown step where the solve falls apart, marked inline */
+  const brokenStepIdx = createMemo(() => {
+    if (props.rec.solved || findings().length > 0 || props.rec.brokenFromIdx === null) return -1;
+    return props.rec.steps.findIndex(
+      (s) => s.kind === "unknown" && s.endIdx >= props.rec.brokenFromIdx!,
+    );
+  });
+
   return (
     <div class="recon card">
       <Show when={props.title}>
@@ -254,7 +271,11 @@ export function ReconstructionView(props: {
           <For each={rows()}>
             {(row) =>
               row.type === "step" ? (
-                <StepItem step={row.step} flagged={wrongIdxs().has(row.idx)} />
+                <StepItem
+                  step={row.step}
+                  flagged={wrongIdxs().has(row.idx)}
+                  broken={brokenStepIdx() === row.idx}
+                />
               ) : (
                 <GhostCaseItem row={row} maps={maps()} />
               )
@@ -265,11 +286,8 @@ export function ReconstructionView(props: {
       <Show when={!props.rec.solved}>
         <div class="recon-dnf">
           <Show when={findings().length > 0} fallback={
-            <Show
-              when={props.rec.brokenFromIdx !== null && props.rec.brokenFromIdx < props.rec.totalMoves}
-              fallback={<span>↯ solve incomplete — cube left unsolved.</span>}
-            >
-              <span>↯ from move {props.rec.brokenFromIdx! + 1} the moves no longer formed a valid case.</span>
+            <Show when={brokenStepIdx() < 0}>
+              <span>↯ solve incomplete — cube left unsolved.</span>
             </Show>
           }>
             <For each={findings()}>{(d) => <DiagnosisView d={d} maps={maps()} />}</For>
