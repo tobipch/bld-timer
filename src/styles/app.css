@@ -864,3 +864,9 @@ select:focus {
   font-size: 12px;
   white-space: nowrap;
 }
+
+.step-suspicion {
+  flex-basis: 100%;
+  font-size: 13px;
+  padding-left: 4px;
+}

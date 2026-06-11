@@ -1,11 +1,28 @@
 import { createMemo, For, Show } from "solid-js";
 import { outerMoveToString } from "~/lib/cube/alg";
 import { humanizeMoves, humanizeMovesVerbatim } from "~/lib/cube/humanize";
-import { describePrimitive, makeOrientationMaps } from "~/lib/engine/present";
+import { describePrimitive, letterFor, makeOrientationMaps } from "~/lib/engine/present";
 import type { OrientationMaps } from "~/lib/engine/present";
 import type { MistakeDiagnosis, Reconstruction, ReconstructionStep } from "~/lib/engine/reconstruct";
+import type { Continuation } from "~/lib/engine/suggest";
 import { formatMs } from "~/lib/stats";
 import { settings } from "~/state/settings";
+
+function continuationText(c: Continuation, maps: OrientationMaps): string {
+  const L = (r: Parameters<typeof letterFor>[0]) => letterFor(r, settings.letterScheme, maps);
+  switch (c.kind) {
+    case "pair":
+      return `the state called for ${L(c.pair[0])}${L(c.pair[1])}`;
+    case "closes":
+      return `the state called for ${L(c.first)}, closing the cycle (then break to an unsolved piece)`;
+    case "breaks": {
+      const opts = c.options.slice(0, 5).map(([a, b]) => `${L(a)}${L(b)}`);
+      return `the buffer was solved — a cycle break was needed, e.g. ${opts.join(", ")}${
+        c.options.length > 5 ? ", …" : ""
+      }`;
+    }
+  }
+}
 
 const KIND_CLASS: Record<string, string> = {
   "Edge comm": "step-edge",
@@ -40,11 +57,13 @@ function StepItem(props: { step: ReconstructionStep; ghost?: boolean; flagged?: 
       </li>
     );
   }
-  const d = describePrimitive(props.step.primitive!, settings.letterScheme, makeOrientationMaps(settings.orientation));
+  const maps = makeOrientationMaps(settings.orientation);
+  const d = describePrimitive(props.step.primitive!, settings.letterScheme, maps);
+  const suspicious = () => props.step.progress?.suspicious && !props.ghost;
   return (
     <li
       class={`recon-step ${KIND_CLASS[d.kind] ?? ""}`}
-      classList={{ ghost: props.ghost, "step-flagged": props.flagged }}
+      classList={{ ghost: props.ghost, "step-flagged": props.flagged || suspicious() }}
     >
       <span class="step-kind">{d.kind}</span>
       <span class="step-label">{d.label}</span>
@@ -54,6 +73,17 @@ function StepItem(props: { step: ReconstructionStep; ghost?: boolean; flagged?: 
       </span>
       <Show when={props.flagged}>
         <span class="bad step-flag">⟵ wrong</span>
+      </Show>
+      <Show when={suspicious()}>
+        <div class="step-suspicion warn">
+          ⚠ {props.step.progress!.newlySolved === 0 ? "solved no piece" : ""}
+          {props.step.progress!.newlySolved === 0 && props.step.progress!.broke > 0 ? ", " : ""}
+          {props.step.progress!.broke > 0 ? `displaced ${props.step.progress!.broke} solved` : ""}
+          <Show when={props.step.progress!.suggestion}>
+            {" — "}
+            {continuationText(props.step.progress!.suggestion!, maps)}
+          </Show>
+        </div>
       </Show>
     </li>
   );
@@ -126,12 +156,18 @@ function DiagnosisView(props: { d: MistakeDiagnosis; maps: OrientationMaps }) {
 
 export function ReconstructionView(props: { rec: Reconstruction; title?: string; scramble?: string }) {
   const maps = createMemo(() => makeOrientationMaps(settings.orientation));
-  const wrongIdx = () =>
-    props.rec.diagnosis?.kind === "wrong-case"
-      ? props.rec.diagnosis.wrongStepIdx
-      : props.rec.diagnosis?.kind === "inverted-case"
-        ? props.rec.diagnosis.invertedStepIdx
-        : undefined;
+  // older stored solves only carry the single diagnosis field
+  const findings = createMemo<MistakeDiagnosis[]>(
+    () => props.rec.findings ?? (props.rec.diagnosis ? [props.rec.diagnosis] : []),
+  );
+  const wrongIdxs = createMemo(() => {
+    const out = new Set<number>();
+    for (const f of findings()) {
+      if (f.kind === "wrong-case" && f.wrongStepIdx !== undefined) out.add(f.wrongStepIdx);
+      if (f.kind === "inverted-case" && f.invertedStepIdx !== undefined) out.add(f.invertedStepIdx);
+    }
+    return out;
+  });
 
   return (
     <div class="recon card">
@@ -144,13 +180,13 @@ export function ReconstructionView(props: { rec: Reconstruction; title?: string;
       <Show when={props.rec.steps.length > 0} fallback={<span class="muted">No moves were made.</span>}>
         <ol class="recon-steps">
           <For each={props.rec.steps}>
-            {(step, i) => <StepItem step={step} flagged={wrongIdx() === i()} />}
+            {(step, i) => <StepItem step={step} flagged={wrongIdxs().has(i())} />}
           </For>
         </ol>
       </Show>
       <Show when={!props.rec.solved}>
         <div class="recon-dnf">
-          <Show when={props.rec.diagnosis} fallback={
+          <Show when={findings().length > 0} fallback={
             <Show
               when={props.rec.brokenFromIdx !== null && props.rec.brokenFromIdx < props.rec.totalMoves}
               fallback={<span>↯ solve incomplete — cube left unsolved.</span>}
@@ -158,7 +194,7 @@ export function ReconstructionView(props: { rec: Reconstruction; title?: string;
               <span>↯ from move {props.rec.brokenFromIdx! + 1} the moves no longer formed a valid case.</span>
             </Show>
           }>
-            {(d) => <DiagnosisView d={d()} maps={maps()} />}
+            <For each={findings()}>{(d) => <DiagnosisView d={d} maps={maps()} />}</For>
           </Show>
           <Show when={props.rec.leftover}>
             <div class="muted recon-leftover">

@@ -11,11 +11,23 @@ import {
   type OuterMove,
 } from "../cube/state";
 import { classifyDiff, unsolvedSummary, type BufferRefs, type Primitive } from "./classify";
+import { continuationFor, type Continuation } from "./suggest";
 
 export interface TimedMove {
   move: OuterMove;
   /** milliseconds, monotonic within a solve (cube timestamp preferred) */
   t: number;
+}
+
+export interface StepProgress {
+  /** pieces (other than the comm's buffer) that became solved */
+  newlySolved: number;
+  /** previously solved pieces (other than the buffer) this step displaced */
+  broke: number;
+  /** a comm that solves nothing or breaks pieces is almost surely a mistrace */
+  suspicious: boolean;
+  /** for suspicious comms: what the state actually called for */
+  suggestion?: Continuation;
 }
 
 export interface ReconstructionStep {
@@ -29,6 +41,8 @@ export interface ReconstructionStep {
   execMs: number;
   /** time from the end of the previous segment to this segment's first move */
   recogMs: number;
+  /** progress accounting, for comm steps */
+  progress?: StepProgress;
 }
 
 export interface MistakeDiagnosis {
@@ -63,6 +77,9 @@ export interface Reconstruction {
   /** index of the first move after the last explained segment, when unsolved */
   brokenFromIdx: number | null;
   totalMoves: number;
+  /** all detected problems (edges and corners are diagnosed independently) */
+  findings: MistakeDiagnosis[];
+  /** first finding, kept for older stored solves */
   diagnosis: MistakeDiagnosis | null;
 }
 
@@ -214,22 +231,67 @@ export function reconstructSolve(
 
   markPseudoSwaps(steps);
 
+  annotateProgress(steps, states);
+
   const finalState = states[n];
   const solved = isSolved(finalState);
   let leftover: Reconstruction["leftover"] = null;
   let brokenFromIdx: number | null = null;
-  let diagnosis: MistakeDiagnosis | null = null;
+  let findings: MistakeDiagnosis[] = [];
   if (!solved) {
     leftover = unsolvedSummary(diffStates(finalState, solvedState()));
     let lastExplainedEnd = -1;
     for (const s of steps) if (s.kind !== "unknown") lastExplainedEnd = s.endIdx;
     brokenFromIdx = lastExplainedEnd + 1;
     if (diagnose) {
-      diagnosis = diagnoseMistake(states, timedMoves, steps, buffers, gapMs);
+      findings = diagnoseMistakes(states, timedMoves, steps, buffers, gapMs);
     }
   }
 
-  return { steps, solved, leftover, brokenFromIdx, totalMoves: n, diagnosis };
+  return {
+    steps,
+    solved,
+    leftover,
+    brokenFromIdx,
+    totalMoves: n,
+    findings,
+    diagnosis: findings[0] ?? null,
+  };
+}
+
+/**
+ * Per-step progress accounting. A correct comm always solves at least one
+ * piece and never displaces solved pieces (other than its own buffer piece
+ * leaving on a cycle break) — a comm violating that is almost certainly a
+ * mistrace, and the state tells us what should have happened instead.
+ */
+function annotateProgress(steps: ReconstructionStep[], states: CubeState[]) {
+  for (const step of steps) {
+    const p = step.primitive;
+    if (!p || (p.type !== "cornerComm" && p.type !== "edgeComm")) continue;
+    const before = states[step.startIdx];
+    const after = states[step.endIdx + 1];
+    const isCorner = p.type === "cornerComm";
+    const permB = isCorner ? before.cp : before.ep;
+    const oriB = isCorner ? before.co : before.eo;
+    const permA = isCorner ? after.cp : after.ep;
+    const oriA = isCorner ? after.co : after.eo;
+    const count = isCorner ? 8 : 12;
+    let newlySolved = 0;
+    let broke = 0;
+    for (let s = 0; s < count; s++) {
+      if (s === p.buffer.slot) continue;
+      const wasSolved = permB[s] === s && oriB[s] === 0;
+      const nowSolved = permA[s] === s && oriA[s] === 0;
+      if (!wasSolved && nowSolved) newlySolved++;
+      if (wasSolved && !nowSolved) broke++;
+    }
+    const suspicious = newlySolved === 0 || broke > 0;
+    step.progress = { newlySolved, broke, suspicious };
+    if (suspicious) {
+      step.progress.suggestion = continuationFor(before, p.buffer);
+    }
+  }
 }
 
 const ALL_MOVES: OuterMove[] = (["U", "D", "L", "R", "F", "B"] as const).flatMap((face) =>
@@ -241,46 +303,90 @@ const sameMove = (a: OuterMove, b: OuterMove) => a.face === b.face && a.amount =
 /** How far from the start of an unknown block we look for the mistake. */
 const EDIT_WINDOW = 16;
 
+type Orbit = "all" | "corner" | "edge";
+
+function projectTransform(t: CubeState, orbit: Orbit): CubeState {
+  if (orbit === "all") return t;
+  if (orbit === "corner")
+    return { cp: t.cp, co: t.co, ep: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], eo: new Array(12).fill(0) };
+  return { cp: [0, 1, 2, 3, 4, 5, 6, 7], co: new Array(8).fill(0), ep: t.ep, eo: t.eo };
+}
+
+const ORBIT_TYPES: Record<Exclude<Orbit, "all">, string[]> = {
+  corner: ["cornerComm", "twist"],
+  edge: ["edgeComm", "flip"],
+};
+
 /**
  * Explain why the solve didn't resolve.
  *
  * 1. With an unexplained block: hypothesis-search single-move edits (a move
- *    deleted, replaced or inserted) near the block start, and accept a
- *    hypothesis only if the entire remainder then parses cleanly — that
- *    pinpoints the exact move and shows that the rest was right.
- * 2. With everything parsed but pieces left, solve the group equation. Step
- *    diffs are position-independent permutations, so for each executed step
- *    we can compute the unique transformation X that would have finished the
- *    solve in its place (prefix ∘ X ∘ suffix = needed). If X is a clean
- *    primitive: that step was the wrong case (or its exact inverse). The
- *    same equation over insertion points finds where a forgotten case fits.
+ *    deleted, replaced or inserted) near the block start, accepted only if
+ *    the entire remainder then parses cleanly.
+ * 2. Otherwise solve the group equation. Step diffs are position-independent
+ *    permutations, so for each step (or insertion point) we can compute the
+ *    unique transformation X with prefix ∘ X ∘ suffix = needed. If X is a
+ *    clean primitive: that step was the wrong case (or its exact inverse) /
+ *    a case was forgotten there. Corners and edges live in independent
+ *    orbits, so when no single fix explains everything, each orbit is
+ *    diagnosed separately — one wrong edge comm AND one forgotten corner
+ *    comm are both reported.
  */
-function diagnoseMistake(
+function diagnoseMistakes(
   states: CubeState[],
   timedMoves: TimedMove[],
   steps: ReconstructionStep[],
   buffers: BufferRefs,
   gapMs: number,
-): MistakeDiagnosis | null {
+): MistakeDiagnosis[] {
   const firstUnknown = steps.find((s) => s.kind === "unknown");
   if (firstUnknown) {
     const small = diagnoseSmallMistake(states, timedMoves, firstUnknown.startIdx, buffers, gapMs);
-    if (small) return small;
+    if (small) return [small];
   }
-  if (steps.some((s) => s.kind === "unknown")) return null;
 
-  const solved = solvedState();
   const T = steps.map((s) => transformBetween(states[s.startIdx], states[s.endIdx + 1]));
-  const needed = transformBetween(states[0], solved);
-  const k = T.length;
+  const needed = transformBetween(states[0], solvedState());
+
+  const full = diagnoseAlgebraic(steps, T, needed, buffers, "all");
+  if (full) return [full];
+
+  const findings: MistakeDiagnosis[] = [];
+  for (const orbit of ["edge", "corner"] as const) {
+    const f = diagnoseAlgebraic(steps, T, needed, buffers, orbit);
+    if (f) findings.push(f);
+  }
+  return findings;
+}
+
+function diagnoseAlgebraic(
+  steps: ReconstructionStep[],
+  T: CubeState[],
+  needed: CubeState,
+  buffers: BufferRefs,
+  orbit: Orbit,
+): MistakeDiagnosis | null {
+  const solved = solvedState();
+  const pT = T.map((t) => projectTransform(t, orbit));
+  const pNeeded = projectTransform(needed, orbit);
+  const k = pT.length;
   // prefix[i] = T_0..T_{i-1}, suffix[i] = T_i..T_{k-1}
   const prefix: CubeState[] = [solved];
-  for (let i = 0; i < k; i++) prefix.push(composeTransforms(prefix[i], T[i]));
+  for (let i = 0; i < k; i++) prefix.push(composeTransforms(prefix[i], pT[i]));
   const suffix: CubeState[] = new Array(k + 1);
   suffix[k] = solved;
-  for (let i = k - 1; i >= 0; i--) suffix[i] = composeTransforms(T[i], suffix[i + 1]);
+  for (let i = k - 1; i >= 0; i--) suffix[i] = composeTransforms(pT[i], suffix[i + 1]);
+
+  // this orbit may simply be fine
+  if (orbit !== "all" && statesEqual(prefix[k], pNeeded)) return null;
 
   const classifyTransform = (x: CubeState) => classifyDiff(diffStates(solved, x), buffers);
+  const replaceable = (i: number) => {
+    if (steps[i].kind === "unknown") return orbit === "all";
+    if (steps[i].kind !== "case") return false;
+    if (orbit === "all") return true;
+    return ORBIT_TYPES[orbit].includes(steps[i].primitive!.type);
+  };
 
   // wrong case: replace step i
   interface WrongCand {
@@ -291,17 +397,18 @@ function diagnoseMistake(
   }
   let wrong: WrongCand | null = null;
   for (let i = 0; i < k; i++) {
-    if (steps[i].kind !== "case") continue;
+    if (!replaceable(i)) continue;
+    // a suspicious comm (solved nothing / broke pieces) is the prime suspect
+    const suspicionBonus = steps[i].progress?.suspicious ? 4 : 0;
     const x = composeTransforms(
-      composeTransforms(invertTransform(prefix[i]), needed),
+      composeTransforms(invertTransform(prefix[i]), pNeeded),
       invertTransform(suffix[i + 1]),
     );
     const prim = classifyTransform(x);
     if (!prim || prim.type === "noop") continue;
-    const executed = steps[i].primitive!;
-    const inverted = statesEqual(x, invertTransform(T[i]));
-    // prefer the step whose executed type matches what was needed there
-    const score = (prim.type === executed.type ? 2 : 0) + (inverted ? 1 : 0);
+    const executedType = steps[i].primitive?.type;
+    const inverted = statesEqual(x, invertTransform(pT[i]));
+    const score = (prim.type === executedType ? 2 : 0) + (inverted ? 1 : 0) + suspicionBonus;
     if (!wrong || score > wrong.score || (score === wrong.score && i > wrong.i)) {
       wrong = { i, prim, inverted, score };
     }
@@ -324,7 +431,7 @@ function diagnoseMistake(
   let insert: InsertCand | null = null;
   for (let p = 0; p <= k; p++) {
     const x = composeTransforms(
-      composeTransforms(invertTransform(prefix[p]), needed),
+      composeTransforms(invertTransform(prefix[p]), pNeeded),
       invertTransform(suffix[p]),
     );
     const prim = classifyTransform(x);

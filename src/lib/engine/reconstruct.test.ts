@@ -31,6 +31,7 @@ function makeSolve(algs: string[]): { start: ReturnType<typeof solvedState>; mov
 
 const EDGE_COMM_1 = "[R2 U': [R2, S]]"; // UF: UR UB (BA)
 const EDGE_COMM_2 = "[U' M2 U': [M, U2]]"; // UF: UL UB (DA)
+const EDGE_COMM_3 = "[U: [L' E' L, U2]]"; // UF: UB LD (AG)
 const CORNER_COMM_1 = "[R' D R U: [R' D' R, U]]"; // UFR: UBR UBL (BA)
 const CORNER_COMM_2 = "[F: [R' D' R, U2]]"; // UFR: LUF UBL (FA)
 const PARITY_UFR_UBL = "r2 D' r2 U' r2 D r2 D' r2 D r2 U' r2 U r2"; // UFR<->UBL, UF<->UR
@@ -209,6 +210,63 @@ describe("mistake diagnosis", () => {
       // CORNER_COMM_1 solves UFR: UBR UBL
       expect(should.targets.map(refName)).toEqual(["UBR", "UBL"]);
     }
+  });
+
+  it("flags a comm that solves nothing and suggests the real continuation", () => {
+    // scramble expects E1 then E2; the user mistraces and does E3 instead of E2
+    const intended = [EDGE_COMM_1, EDGE_COMM_2].map((a) => algToOuterMoves(a));
+    const start = applyMoves(solvedState(), invertOuterMoves(intended.flat()));
+    const executedAlgs = [EDGE_COMM_1, EDGE_COMM_3].map((a) => algToOuterMoves(a));
+    const moves: TimedMove[] = [];
+    let t = 1000;
+    for (const algMoves of executedAlgs) {
+      t += 900;
+      for (const m of algMoves) {
+        moves.push({ move: m, t });
+        t += 150;
+      }
+    }
+    const rec = reconstructSolve(start, moves, buffers);
+    const cases = rec.steps.filter((s) => s.kind === "case");
+    expect(cases[0].progress?.suspicious).toBe(false);
+    expect(cases[1].progress?.suspicious).toBe(true);
+    expect(cases[1].progress?.newlySolved).toBe(0);
+    const sug = cases[1].progress?.suggestion;
+    expect(sug?.kind).toBe("pair");
+    if (sug?.kind === "pair") {
+      // the state called for EDGE_COMM_2's targets: UL then UB
+      expect(sug.pair.map(refName)).toEqual(["UL", "UB"]);
+    }
+  });
+
+  it("diagnoses a wrong edge comm and a forgotten corner comm independently", () => {
+    // intended: E1 E2 C1 C2 — executed: E1, E3 (wrong), C1 (C2 forgotten)
+    const intended = [EDGE_COMM_1, EDGE_COMM_2, CORNER_COMM_1, CORNER_COMM_2].map((a) =>
+      algToOuterMoves(a),
+    );
+    const start = applyMoves(solvedState(), invertOuterMoves(intended.flat()));
+    const executedAlgs = [EDGE_COMM_1, EDGE_COMM_3, CORNER_COMM_1].map((a) => algToOuterMoves(a));
+    const moves: TimedMove[] = [];
+    let t = 1000;
+    for (const algMoves of executedAlgs) {
+      t += 900;
+      for (const m of algMoves) {
+        moves.push({ move: m, t });
+        t += 150;
+      }
+    }
+    const rec = reconstructSolve(start, moves, buffers);
+    expect(rec.solved).toBe(false);
+    expect(rec.findings).toHaveLength(2);
+    const edgeFinding = rec.findings.find((f) => f.shouldHaveBeen?.type === "edgeComm");
+    const cornerFinding = rec.findings.find((f) => f.missing?.type === "cornerComm");
+    expect(edgeFinding?.kind).toBe("wrong-case");
+    expect(edgeFinding?.wrongStepIdx).toBe(1);
+    if (edgeFinding?.shouldHaveBeen?.type === "edgeComm") {
+      expect(edgeFinding.shouldHaveBeen.targets.map(refName)).toEqual(["UL", "UB"]);
+    }
+    expect(cornerFinding?.kind).toBe("missing-case");
+    expect(cornerFinding?.insertAfterStepIdx).toBe(2);
   });
 
   it("a forgotten comm in the middle is fitted where it makes sense", () => {
