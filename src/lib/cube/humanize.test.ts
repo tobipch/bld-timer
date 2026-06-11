@@ -15,6 +15,19 @@ describe("humanizeMoves", () => {
     expect(humanizeMoves(core, "z2")).toBe("[L' U' L U, M']");
   });
 
+  it("does not fold corner-comm move pairs into slices that break the brackets", () => {
+    // adjacent D/U' here are plain moves, not an E
+    const bt = algToOuterMoves("z2 [D: [U', R D' R']]");
+    expect(humanizeMoves(bt, "z2")).toBe("[D: [U', R D' R']]");
+    const gp = algToOuterMoves("z2 [U R' D: [R U' R', D2]]");
+    expect(humanizeMoves(gp, "z2")).toBe("[U R' D: [R U' R', D2]]");
+  });
+
+  it("picks the fold reading that factors when slices are genuinely involved", () => {
+    const pf = algToOuterMoves("z2 [U E R: [S, R2]]");
+    expect(humanizeMoves(pf, "z2")).toBe("[U E R: [S, R2]]");
+  });
+
   it("folds slices and restores commutator/conjugate notation", () => {
     const core = algToOuterMoves("[R2 U': [R2, S]]");
     expect(humanizeMoves(core, "")).toBe("[R2 U': [R2, S]]");

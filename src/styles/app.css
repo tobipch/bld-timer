@@ -870,3 +870,11 @@ select:focus {
   font-size: 13px;
   padding-left: 4px;
 }
+
+.ghost-case {
+  opacity: 0.75;
+  border: 1px dashed var(--warn);
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: help;
+}

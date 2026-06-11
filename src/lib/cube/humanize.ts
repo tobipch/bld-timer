@@ -73,12 +73,28 @@ function sliceFor(l1: Face, p: number): { base: "M" | "E" | "S"; amount: number 
   }
 }
 
-function foldAndTranslate(moves: OuterMove[], orientation: string): HumanToken[] {
-  let frame = orientationFrame(orientation); // logical (user) -> core
-  const out: HumanToken[] = [];
-  const work = moves.map((m) => ({ ...m }));
-  let i = 0;
-  while (i < work.length) {
+/**
+ * All ways of reading the move stream: at each point where an opposite-face
+ * pair could be a slice, both the folded and unfolded readings are explored
+ * (an adjacent U D' in a corner comm is usually two moves, not an E — and a
+ * wrong fold shifts the frame for everything after it). The caller picks
+ * the reading that factors into commutator notation.
+ */
+function foldVariants(moves: OuterMove[], orientation: string, cap = 64): HumanToken[][] {
+  const startFrame = orientationFrame(orientation); // logical (user) -> core
+  const results: HumanToken[][] = [];
+  const seen = new Set<string>();
+
+  function go(work: OuterMove[], i: number, frame: FaceMap, acc: HumanToken[]) {
+    if (results.length >= cap) return;
+    if (i >= work.length) {
+      const key = acc.map(fmt).join(" ");
+      if (!seen.has(key)) {
+        seen.add(key);
+        results.push(acc);
+      }
+      return;
+    }
     const cur = work[i];
     // find the slice partner: the complementary opposite-face turn, allowing
     // one same-axis move in between (M2 may arrive as R R L' L' — moves on
@@ -96,19 +112,32 @@ function foldAndTranslate(moves: OuterMove[], orientation: string): HumanToken[]
       const inv = invertMap(frame);
       const slice = sliceFor(inv[cur.face], cur.amount);
       if (slice && slice.amount !== 0) {
-        out.push({ kind: "slice", base: slice.base, amount: slice.amount });
         const def = SLICE_DEF[slice.base];
         const signed = slice.amount === 3 ? -1 : slice.amount;
-        frame = rotateFrame(frame, def.rot, def.rotAmount * signed);
-        work.splice(partner, 1);
-        work.splice(i, 1);
-        continue;
+        const folded = work.slice();
+        folded.splice(partner, 1);
+        folded.splice(i, 1);
+        go(folded, i, rotateFrame(frame, def.rot, def.rotAmount * signed), [
+          ...acc,
+          { kind: "slice", base: slice.base, amount: slice.amount },
+        ]);
       }
     }
-    out.push({ kind: "outer", base: invertMap(frame)[cur.face], amount: cur.amount });
-    i++;
+    go(work, i + 1, frame, [...acc, { kind: "outer", base: invertMap(frame)[cur.face], amount: cur.amount }]);
   }
-  return out;
+
+  go(
+    moves.map((m) => ({ ...m })),
+    0,
+    startFrame,
+    [],
+  );
+  return results;
+}
+
+/** Greedy reading (prefer folds), for verbatim display of fumbles. */
+function foldAndTranslate(moves: OuterMove[], orientation: string): HumanToken[] {
+  return foldVariants(moves, orientation, 1)[0] ?? [];
 }
 
 function simplifyTokens(tokens: HumanToken[]): HumanToken[] {
@@ -167,10 +196,10 @@ function tryFactor(tokens: HumanToken[]): { setupLen: number; text: string } | n
   return null;
 }
 
-function factorOrJoin(tokens: HumanToken[]): string {
+function tryFactorWithSplits(tokens: HumanToken[]): { setupLen: number; text: string } | null {
   // the unsplit sequence is the faithful record; prefer it when it factors
   const direct = tryFactor(tokens);
-  if (direct) return direct.text;
+  if (direct) return direct;
   // A cancellation at a bracket boundary merges two tokens (e.g. B' ending
   // U2 followed by a setup-undo starting U shows up as U'). Re-splitting one
   // token can recover the structure; among the possibilities prefer the
@@ -192,13 +221,46 @@ function factorOrJoin(tokens: HumanToken[]): string {
       if (cand && (!best || cand.setupLen > best.setupLen)) best = cand;
     }
   }
-  return best ? best.text : join(tokens);
+  return best;
 }
 
-/** Human-readable alg for a recorded core-frame move sequence. */
+/**
+ * Human-readable alg for a recorded core-frame move sequence. Commutator
+ * notation is preferred above all: every slice-fold reading of the stream
+ * is tried, and the one that factors wins (so a U D' inside a corner comm
+ * isn't forced into an E that destroys the bracket structure). Among
+ * factoring readings, more slice folds win — edge comms keep their M/E/S.
+ */
 export function humanizeMoves(moves: OuterMove[], orientation: string): string {
   if (moves.length === 0) return "";
-  return factorOrJoin(simplifyTokens(foldAndTranslate(moves, orientation)));
+  interface Cand {
+    factored: boolean;
+    folds: number;
+    setupLen: number;
+    text: string;
+  }
+  let best: Cand | null = null;
+  for (const v of foldVariants(moves, orientation)) {
+    const simplified = simplifyTokens(v);
+    const folds = v.filter((t) => t.kind === "slice").length;
+    const f = tryFactorWithSplits(simplified);
+    const cand: Cand = f
+      ? { factored: true, folds, setupLen: f.setupLen, text: f.text }
+      : { factored: false, folds, setupLen: -1, text: join(simplified) };
+    const better =
+      !best ||
+      (cand.factored !== best.factored
+        ? cand.factored
+        : cand.folds !== best.folds
+          ? cand.folds > best.folds
+          : cand.setupLen !== best.setupLen
+            ? cand.setupLen > best.setupLen
+            : // full tie: later variants defer folds, keeping the
+              // chronological reading (U E rather than E U)
+              true);
+    if (better) best = cand;
+  }
+  return best!.text;
 }
 
 /**

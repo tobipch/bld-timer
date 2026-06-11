@@ -89,6 +89,20 @@ function StepItem(props: { step: ReconstructionStep; ghost?: boolean; flagged?: 
   );
 }
 
+function GhostCaseItem(props: { row: GhostRow; maps: OrientationMaps }) {
+  const d = () => describePrimitive(props.row.prim, settings.letterScheme, props.maps);
+  return (
+    <li
+      class={`recon-step ghost-case ${KIND_CLASS[d().kind] ?? ""}`}
+      title={props.row.setup ? `Setup to practice this spot:\n${props.row.setup}` : undefined}
+    >
+      <span class="step-kind">{d().kind}</span>
+      <span class="step-label">{d().label}</span>
+      <span class="warn step-flag">⟵ {props.row.note}</span>
+    </li>
+  );
+}
+
 function DiagnosisView(props: { d: MistakeDiagnosis; maps: OrientationMaps }) {
   const missingLabel = () =>
     props.d.missing ? describePrimitive(props.d.missing, settings.letterScheme, props.maps) : null;
@@ -154,7 +168,20 @@ function DiagnosisView(props: { d: MistakeDiagnosis; maps: OrientationMaps }) {
   );
 }
 
-export function ReconstructionView(props: { rec: Reconstruction; title?: string; scramble?: string }) {
+interface GhostRow {
+  type: "ghost";
+  prim: NonNullable<MistakeDiagnosis["missing"]>;
+  note: string;
+  setup: string | null;
+}
+type Row = { type: "step"; step: ReconstructionStep; idx: number } | GhostRow;
+
+export function ReconstructionView(props: {
+  rec: Reconstruction;
+  title?: string;
+  scramble?: string;
+  moves?: { m: string; t: number }[];
+}) {
   const maps = createMemo(() => makeOrientationMaps(settings.orientation));
   // older stored solves only carry the single diagnosis field
   const findings = createMemo<MistakeDiagnosis[]>(
@@ -169,18 +196,69 @@ export function ReconstructionView(props: { rec: Reconstruction; title?: string;
     return out;
   });
 
+  /** setup sequence reproducing the state before move index i (for practice) */
+  const setupTo = (moveIdx: number): string | null => {
+    if (!props.scramble || !props.moves) return null;
+    const prefix = props.moves.slice(0, moveIdx).map((m) => m.m);
+    return `${props.scramble}${prefix.length ? "  +  " + prefix.join(" ") : ""}`;
+  };
+
+  const rows = createMemo<Row[]>(() => {
+    const out: Row[] = props.rec.steps.map((step, idx) => ({ type: "step" as const, step, idx }));
+    // inject ghost rows where a case should have happened, last position first
+    const ghosts: { pos: number; row: GhostRow }[] = [];
+    for (const f of findings()) {
+      if (f.kind === "missing-case" && f.missing && f.insertAfterStepIdx !== undefined) {
+        const pos = f.insertAfterStepIdx + 1;
+        const moveIdx = props.rec.steps[pos]?.startIdx ?? props.rec.totalMoves;
+        ghosts.push({
+          pos,
+          row: { type: "ghost", prim: f.missing, note: "should have happened here", setup: setupTo(moveIdx) },
+        });
+      }
+      if (f.kind === "wrong-case" && f.shouldHaveBeen && f.wrongStepIdx !== undefined) {
+        const moveIdx = props.rec.steps[f.wrongStepIdx]?.startIdx ?? 0;
+        ghosts.push({
+          pos: f.wrongStepIdx + 1,
+          row: {
+            type: "ghost",
+            prim: f.shouldHaveBeen,
+            note: "what the step above should have solved",
+            setup: setupTo(moveIdx),
+          },
+        });
+      }
+    }
+    ghosts.sort((a, b) => b.pos - a.pos);
+    for (const g of ghosts) out.splice(g.pos, 0, g.row);
+    return out;
+  });
+
+  const algCount = createMemo(() => props.rec.steps.filter((s) => s.kind === "case").length);
+
   return (
     <div class="recon card">
       <Show when={props.title}>
-        <h3>{props.title}</h3>
+        <h3>
+          {props.title}
+          <Show when={algCount() > 0}>
+            <span class="muted"> · {algCount()} algs</span>
+          </Show>
+        </h3>
       </Show>
       <Show when={props.scramble}>
         <div class="recon-scramble mono muted">{props.scramble}</div>
       </Show>
       <Show when={props.rec.steps.length > 0} fallback={<span class="muted">No moves were made.</span>}>
         <ol class="recon-steps">
-          <For each={props.rec.steps}>
-            {(step, i) => <StepItem step={step} flagged={wrongIdxs().has(i())} />}
+          <For each={rows()}>
+            {(row) =>
+              row.type === "step" ? (
+                <StepItem step={row.step} flagged={wrongIdxs().has(row.idx)} />
+              ) : (
+                <GhostCaseItem row={row} maps={maps()} />
+              )
+            }
           </For>
         </ol>
       </Show>
