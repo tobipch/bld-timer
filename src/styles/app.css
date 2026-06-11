@@ -847,3 +847,20 @@ select:focus {
   margin-top: 6px;
   font-size: 13px;
 }
+
+.recon-scramble {
+  font-size: 14px;
+  margin-bottom: 10px;
+  word-break: break-word;
+}
+
+.step-flagged {
+  outline: 1px solid var(--bad);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.step-flag {
+  font-size: 12px;
+  white-space: nowrap;
+}

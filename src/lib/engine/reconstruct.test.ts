@@ -175,9 +175,62 @@ describe("mistake diagnosis", () => {
     const moves: TimedMove[] = executed.map((m, i) => ({ move: m, t: 1000 + i * 150 }));
     const rec = reconstructSolve(start, moves, buffers);
     expect(rec.solved).toBe(false);
-    expect(rec.diagnosis?.kind).toBe("inverted-case");
-    expect(rec.diagnosis?.invertedStepIdx).toBe(0);
+    expect(rec.diagnosis?.kind).toBe("wrong-case");
+    expect(rec.diagnosis?.wrongStepIdx).toBe(0);
+    expect(rec.diagnosis?.invertedExecution).toBe(true);
+    expect(rec.diagnosis?.shouldHaveBeen?.type).toBe("edgeComm");
+  });
+
+  it("a wrong comm is identified with what it should have been", () => {
+    // the scramble expects EDGE_COMM_1 then CORNER_COMM_1; the user does
+    // CORNER_COMM_2 instead of CORNER_COMM_1 (cleanly executed, wrong case)
+    const intended = [EDGE_COMM_1, CORNER_COMM_1].map((a) => algToOuterMoves(a));
+    const start = applyMoves(solvedState(), invertOuterMoves(intended.flat()));
+    const executedAlgs = [EDGE_COMM_1, CORNER_COMM_2].map((a) => algToOuterMoves(a));
+    const moves: TimedMove[] = [];
+    let t = 1000;
+    for (const algMoves of executedAlgs) {
+      t += 900;
+      for (const m of algMoves) {
+        moves.push({ move: m, t });
+        t += 150;
+      }
+    }
+    const rec = reconstructSolve(start, moves, buffers);
+    expect(rec.solved).toBe(false);
+    // both comms parse cleanly, but the corner comm was the wrong one
+    expect(rec.steps.filter((s) => s.kind === "case")).toHaveLength(2);
+    expect(rec.diagnosis?.kind).toBe("wrong-case");
+    expect(rec.diagnosis?.wrongStepIdx).toBe(1);
+    expect(rec.diagnosis?.invertedExecution).toBe(false);
+    const should = rec.diagnosis?.shouldHaveBeen;
+    expect(should?.type).toBe("cornerComm");
+    if (should?.type === "cornerComm") {
+      // CORNER_COMM_1 solves UFR: UBR UBL
+      expect(should.targets.map(refName)).toEqual(["UBR", "UBL"]);
+    }
+  });
+
+  it("a forgotten comm in the middle is fitted where it makes sense", () => {
+    // scramble expects edge, edge, corner — the second edge comm is skipped
+    const perAlg = [EDGE_COMM_1, EDGE_COMM_2, CORNER_COMM_1].map((a) => algToOuterMoves(a));
+    const start = applyMoves(solvedState(), invertOuterMoves(perAlg.flat()));
+    const executed = [perAlg[0], perAlg[2]];
+    const moves: TimedMove[] = [];
+    let t = 1000;
+    for (const algMoves of executed) {
+      t += 900;
+      for (const m of algMoves) {
+        moves.push({ move: m, t });
+        t += 150;
+      }
+    }
+    const rec = reconstructSolve(start, moves, buffers);
+    expect(rec.solved).toBe(false);
+    expect(rec.diagnosis?.kind).toBe("missing-case");
     expect(rec.diagnosis?.missing?.type).toBe("edgeComm");
+    // fits after the first (edge) step, not after the corner comm
+    expect(rec.diagnosis?.insertAfterStepIdx).toBe(0);
   });
 
   it("a single wrong move is located, with the rest validated", () => {

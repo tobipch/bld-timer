@@ -200,3 +200,13 @@ export function humanizeMoves(moves: OuterMove[], orientation: string): string {
   if (moves.length === 0) return "";
   return factorOrJoin(simplifyTokens(foldAndTranslate(moves, orientation)));
 }
+
+/**
+ * Like humanizeMoves but without simplification or factoring — for showing
+ * fumbles and error blocks verbatim, where simplifying would erase exactly
+ * the moves the user wants to see (a no-op's moves cancel to nothing).
+ */
+export function humanizeMovesVerbatim(moves: OuterMove[], orientation: string): string {
+  if (moves.length === 0) return "";
+  return join(foldAndTranslate(moves, orientation));
+}

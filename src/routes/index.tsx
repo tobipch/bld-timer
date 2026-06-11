@@ -78,6 +78,7 @@ export default function TimerPage() {
             {(s) => (
               <ReconstructionView
                 rec={s().reconstruction}
+                scramble={s().scramble}
                 title={`${s().result === "dnf" ? "DNF" : formatMs(s().totalMs)} — memo ${formatMs(
                   s().memoMs,
                 )} · exec ${formatMs(s().execMs)}`}

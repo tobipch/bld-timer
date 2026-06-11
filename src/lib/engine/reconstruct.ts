@@ -1,9 +1,12 @@
 import {
   applyMove,
+  composeTransforms,
   diffStates,
+  invertTransform,
   isSolved,
   solvedState,
   statesEqual,
+  transformBetween,
   type CubeState,
   type OuterMove,
 } from "../cube/state";
@@ -29,10 +32,18 @@ export interface ReconstructionStep {
 }
 
 export interface MistakeDiagnosis {
-  kind: "missing-case" | "inverted-case" | "small-mistake";
-  /** missing/inverted: the primitive that is left to solve */
+  kind: "missing-case" | "inverted-case" | "small-mistake" | "wrong-case";
+  /** missing/inverted: the primitive that is left to solve / to insert */
   missing?: Primitive;
-  /** inverted: index of the executed step that looks like the inverse */
+  /** missing-case: the case fits after this step (-1 = before everything) */
+  insertAfterStepIdx?: number;
+  /** wrong-case: which executed step was wrong */
+  wrongStepIdx?: number;
+  /** wrong-case: what that step should have done */
+  shouldHaveBeen?: Primitive;
+  /** wrong-case: the step was exactly the inverse of what was needed */
+  invertedExecution?: boolean;
+  /** legacy field for stored solves */
   invertedStepIdx?: number;
   /** small-mistake: solve-global index of the move where it went wrong */
   atMoveIdx?: number;
@@ -237,9 +248,12 @@ const EDIT_WINDOW = 16;
  *    deleted, replaced or inserted) near the block start, and accept a
  *    hypothesis only if the entire remainder then parses cleanly — that
  *    pinpoints the exact move and shows that the rest was right.
- * 2. With everything parsed but pieces left: if the leftover is exactly one
- *    primitive, a cycle was skipped — and if an executed step has the same
- *    state effect, that step was the inverse of what was needed.
+ * 2. With everything parsed but pieces left, solve the group equation. Step
+ *    diffs are position-independent permutations, so for each executed step
+ *    we can compute the unique transformation X that would have finished the
+ *    solve in its place (prefix ∘ X ∘ suffix = needed). If X is a clean
+ *    primitive: that step was the wrong case (or its exact inverse). The
+ *    same equation over insertion points finds where a forgotten case fits.
  */
 function diagnoseMistake(
   states: CubeState[],
@@ -253,25 +267,77 @@ function diagnoseMistake(
     const small = diagnoseSmallMistake(states, timedMoves, firstUnknown.startIdx, buffers, gapMs);
     if (small) return small;
   }
+  if (steps.some((s) => s.kind === "unknown")) return null;
 
-  const finalState = states[states.length - 1];
-  const leftoverDiff = diffStates(finalState, solvedState());
-  const missing = classifyDiff(leftoverDiff, buffers);
-  if (missing && missing.type !== "noop") {
-    // executing C' instead of C leaves exactly C''s cycle as residue, and a
-    // step that classified as the leftover's inverse-effect shares its case
-    if (missing.type === "cornerComm" || missing.type === "edgeComm") {
-      const slotsOf = (p: Extract<Primitive, { type: "cornerComm" | "edgeComm" }>) =>
-        [p.buffer.slot, ...p.targets.map((t) => t.slot)].sort().join(",");
-      for (let i = 0; i < steps.length; i++) {
-        const p = steps[i].primitive;
-        if (!p || p.type !== missing.type) continue;
-        if (slotsOf(p) === slotsOf(missing)) {
-          return { kind: "inverted-case", missing, invertedStepIdx: i };
-        }
-      }
+  const solved = solvedState();
+  const T = steps.map((s) => transformBetween(states[s.startIdx], states[s.endIdx + 1]));
+  const needed = transformBetween(states[0], solved);
+  const k = T.length;
+  // prefix[i] = T_0..T_{i-1}, suffix[i] = T_i..T_{k-1}
+  const prefix: CubeState[] = [solved];
+  for (let i = 0; i < k; i++) prefix.push(composeTransforms(prefix[i], T[i]));
+  const suffix: CubeState[] = new Array(k + 1);
+  suffix[k] = solved;
+  for (let i = k - 1; i >= 0; i--) suffix[i] = composeTransforms(T[i], suffix[i + 1]);
+
+  const classifyTransform = (x: CubeState) => classifyDiff(diffStates(solved, x), buffers);
+
+  // wrong case: replace step i
+  interface WrongCand {
+    i: number;
+    prim: Primitive;
+    inverted: boolean;
+    score: number;
+  }
+  let wrong: WrongCand | null = null;
+  for (let i = 0; i < k; i++) {
+    if (steps[i].kind !== "case") continue;
+    const x = composeTransforms(
+      composeTransforms(invertTransform(prefix[i]), needed),
+      invertTransform(suffix[i + 1]),
+    );
+    const prim = classifyTransform(x);
+    if (!prim || prim.type === "noop") continue;
+    const executed = steps[i].primitive!;
+    const inverted = statesEqual(x, invertTransform(T[i]));
+    // prefer the step whose executed type matches what was needed there
+    const score = (prim.type === executed.type ? 2 : 0) + (inverted ? 1 : 0);
+    if (!wrong || score > wrong.score || (score === wrong.score && i > wrong.i)) {
+      wrong = { i, prim, inverted, score };
     }
-    return { kind: "missing-case", missing };
+  }
+  if (wrong) {
+    return {
+      kind: "wrong-case",
+      wrongStepIdx: wrong.i,
+      shouldHaveBeen: wrong.prim,
+      invertedExecution: wrong.inverted,
+    };
+  }
+
+  // forgotten case: insert X at position p (after step p-1)
+  interface InsertCand {
+    p: number;
+    prim: Primitive;
+    score: number;
+  }
+  let insert: InsertCand | null = null;
+  for (let p = 0; p <= k; p++) {
+    const x = composeTransforms(
+      composeTransforms(invertTransform(prefix[p]), needed),
+      invertTransform(suffix[p]),
+    );
+    const prim = classifyTransform(x);
+    if (!prim || prim.type === "noop") continue;
+    // "fits" best next to steps of the same type; cases of a type are
+    // executed in runs, so following one of its own kind weighs more
+    const prevType = p > 0 ? steps[p - 1].primitive?.type : undefined;
+    const nextType = p < k ? steps[p].primitive?.type : undefined;
+    const score = (prevType === prim.type ? 2 : 0) + (nextType === prim.type ? 1 : 0);
+    if (!insert || score > insert.score) insert = { p, prim, score };
+  }
+  if (insert) {
+    return { kind: "missing-case", missing: insert.prim, insertAfterStepIdx: insert.p - 1 };
   }
   return null;
 }
