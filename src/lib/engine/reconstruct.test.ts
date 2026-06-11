@@ -180,6 +180,32 @@ describe("progress-aware parsing", () => {
 });
 
 describe("mistake diagnosis", () => {
+  it("steps after a stray block are judged counterfactually, not as follow-up errors", () => {
+    // intended E1 E2 C1; after E1 the solver fumbles a garbage block, then
+    // keeps executing the memo correctly (the algs are position-independent)
+    const intended = [EDGE_COMM_1, EDGE_COMM_2, CORNER_COMM_1].map((a) => algToOuterMoves(a));
+    const start = applyMoves(solvedState(), invertOuterMoves(intended.flat()));
+    const junk = algToOuterMoves("F2 D R'"); // does not cancel, not a case
+    const moves: TimedMove[] = [];
+    let t = 1000;
+    for (const algMoves of [intended[0], junk, intended[1], intended[2]]) {
+      t += 900;
+      for (const m of algMoves) {
+        moves.push({ move: m, t });
+        t += 150;
+      }
+    }
+    const rec = reconstructSolve(start, moves, buffers);
+    expect(rec.solved).toBe(false);
+    const cases = rec.steps.filter((s) => s.kind === "case");
+    expect(cases).toHaveLength(3);
+    // none of the post-block algs are flagged: in the timeline without the
+    // block they solve exactly what the memo said
+    expect(cases.every((s) => !s.progress?.suspicious)).toBe(true);
+    expect(rec.findings).toHaveLength(1);
+    expect(rec.findings[0].kind).toBe("stray-block");
+    expect(rec.steps[rec.findings[0].wrongStepIdx!].kind).toBe("unknown");
+  });
   it("a forgotten lone flip is reported at the end", () => {
     const FLIP = "R' F R U' M' U2 M U' S R' F' R S'"; // UF & UR flip
     const perAlg = [EDGE_COMM_1, CORNER_COMM_1, FLIP].map((a) => algToOuterMoves(a));

@@ -44,12 +44,18 @@ const KIND_CLASS: Record<string, string> = {
 function StepItem(props: { step: ReconstructionStep; ghost?: boolean; flagged?: boolean; broken?: boolean }) {
   if (props.step.kind === "unknown") {
     return (
-      <li class="recon-step step-unknown" classList={{ ghost: props.ghost, "step-flagged": props.broken }}>
+      <li
+        class="recon-step step-unknown"
+        classList={{ ghost: props.ghost, "step-flagged": props.broken || props.flagged }}
+      >
         <span class="step-kind">?</span>
         <span class="step-label">{props.step.moves.length} moves not forming any case</span>
         <span class="step-moves mono">{humanizeMovesVerbatim(props.step.moves, settings.orientation)}</span>
         <Show when={props.broken}>
           <span class="bad step-flag">⟵ solve breaks down from here</span>
+        </Show>
+        <Show when={props.flagged && !props.broken}>
+          <span class="bad step-flag">⟵ derailed the cube</span>
         </Show>
       </li>
     );
@@ -132,6 +138,13 @@ function DiagnosisView(props: { d: MistakeDiagnosis; maps: OrientationMaps }) {
           else was correct.
         </div>
       </Show>
+      <Show when={props.d.kind === "stray-block"}>
+        <div class="diag-head bad">
+          ↯ The unrecognized moves at step {props.d.wrongStepIdx! + 1} derailed the cube — everything you
+          executed after them was consistent with the state before, so that block was likely the only real
+          mistake.
+        </div>
+      </Show>
       <Show when={props.d.kind === "missing-case"}>
         <div class="diag-head bad">
           ↯ One case was never solved: <strong>{missingLabel()?.kind}</strong> {missingLabel()?.label}
@@ -202,6 +215,7 @@ export function ReconstructionView(props: {
     const out = new Set<number>();
     for (const f of findings()) {
       if (f.kind === "wrong-case" && f.wrongStepIdx !== undefined) out.add(f.wrongStepIdx);
+      if (f.kind === "stray-block" && f.wrongStepIdx !== undefined) out.add(f.wrongStepIdx);
       if (f.kind === "inverted-case" && f.invertedStepIdx !== undefined) out.add(f.invertedStepIdx);
     }
     return out;

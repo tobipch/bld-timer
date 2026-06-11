@@ -48,7 +48,7 @@ export interface ReconstructionStep {
 }
 
 export interface MistakeDiagnosis {
-  kind: "missing-case" | "inverted-case" | "small-mistake" | "wrong-case";
+  kind: "missing-case" | "inverted-case" | "small-mistake" | "wrong-case" | "stray-block";
   /** missing/inverted: the primitive that is left to solve / to insert */
   missing?: Primitive;
   /** missing-case: the case fits after this step (-1 = before everything) */
@@ -310,14 +310,22 @@ export function reconstructSolve(
  * piece and never displaces solved pieces (other than its own buffer piece
  * leaving on a cycle break) — a comm violating that is almost certainly a
  * mistrace, and the state tells us what should have happened instead.
+ *
+ * Evaluation is counterfactual: unexplained blocks corrupt the cube, but
+ * the solver keeps executing against the memo. Steps after a block are
+ * judged in the timeline where the block never happened, so correctly
+ * executed algs aren't flagged as follow-up errors.
  */
 function annotateProgress(steps: ReconstructionStep[], states: CubeState[]) {
+  let cf = states[0];
   for (const step of steps) {
+    const t = transformBetween(states[step.startIdx], states[step.endIdx + 1]);
+    if (step.kind === "unknown") continue; // the block never happened
+    const before = cf;
+    cf = composeTransforms(cf, t);
     const p = step.primitive;
     if (!p || (p.type !== "cornerComm" && p.type !== "edgeComm")) continue;
-    const before = states[step.startIdx];
-    const after = states[step.endIdx + 1];
-    const { newlySolved, broke } = commProgress(before, after, p);
+    const { newlySolved, broke } = commProgress(before, cf, p);
     const suspicious = newlySolved === 0;
     // when the buffer held an unsolved piece, the straightforward pair was
     // available and solves two — settling for one is worth a hint (unless
@@ -393,7 +401,15 @@ function diagnoseMistakes(
     const f = diagnoseAlgebraic(steps, T, needed, buffers, orbit);
     if (f) findings.push(f);
   }
-  return findings;
+  if (findings.length > 0) return findings;
+
+  // Everything the solver executed checks out against the memo timeline —
+  // the unexplained block alone derailed the cube.
+  const blockIdx = steps.findIndex((s) => s.kind === "unknown");
+  if (blockIdx >= 0 && steps.every((s) => !s.progress?.suspicious)) {
+    return [{ kind: "stray-block", wrongStepIdx: blockIdx }];
+  }
+  return [];
 }
 
 function diagnoseAlgebraic(
