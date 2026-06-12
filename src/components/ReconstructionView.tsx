@@ -1,5 +1,5 @@
 import { createMemo, For, Show } from "solid-js";
-import { outerMoveToString } from "~/lib/cube/alg";
+import { invertOuterMoves, outerMoveToString } from "~/lib/cube/alg";
 import { humanizeMoves, humanizeMovesVerbatim } from "~/lib/cube/humanize";
 import { describePrimitive, letterFor, makeOrientationMaps } from "~/lib/engine/present";
 import type { OrientationMaps } from "~/lib/engine/present";
@@ -76,6 +76,10 @@ function StepItem(props: { step: ReconstructionStep; ghost?: boolean; flagged?: 
   const d = describePrimitive(props.step.primitive!, settings.letterScheme, maps);
   const suspicious = () => props.step.progress?.suspicious && !props.ghost;
   const suboptimal = () => props.step.progress?.suboptimal && !props.ghost;
+  const fullMoves = () =>
+    props.step.setupMoves
+      ? [...props.step.setupMoves, ...props.step.moves, ...invertOuterMoves(props.step.setupMoves)]
+      : props.step.moves;
   return (
     <li
       class={`recon-step ${KIND_CLASS[d.kind] ?? ""}`}
@@ -83,7 +87,12 @@ function StepItem(props: { step: ReconstructionStep; ghost?: boolean; flagged?: 
     >
       <span class="step-kind">{d.kind}</span>
       <span class="step-label">{d.label}</span>
-      <span class="step-moves mono">{humanizeMoves(props.step.moves, settings.orientation)}</span>
+      <span class="step-moves mono">
+        {humanizeMoves(fullMoves(), settings.orientation)}
+        <Show when={props.step.setupMoves}>
+          <span class="muted"> (shared setup)</span>
+        </Show>
+      </span>
       <span class="step-times mono muted">
         rec {formatMs(props.step.recogMs)} · exec {formatMs(props.step.execMs)}
       </span>

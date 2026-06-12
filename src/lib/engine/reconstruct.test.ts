@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { algToOuterMoves, invertOuterMoves } from "../cube/alg";
-import { applyMoves, solvedState, type OuterMove } from "../cube/state";
-import { buffersFromNames, refName } from "./classify";
+import { applyMoves, diffStates, solvedState, type OuterMove } from "../cube/state";
+import { buffersFromNames, classifyDiff, refName } from "./classify";
 import { defaultBuffers } from "../cube/speffz";
 import { reconstructSolve, type TimedMove } from "./reconstruct";
 
@@ -149,6 +149,36 @@ describe("reconstructSolve", () => {
 });
 
 describe("progress-aware parsing", () => {
+  it("re-attributes a setup shared by consecutive cases", () => {
+    // the solver executes [U': comm1 comm2] — one wrapper, two cases. The
+    // stray U'/U fragments are absorbed and the cases are reported as their
+    // conjugates with setupMoves attached.
+    const inner1 = algToOuterMoves(EDGE_COMM_1);
+    const inner2 = algToOuterMoves(EDGE_COMM_2);
+    const wrapper = algToOuterMoves("D");
+    const all = [...wrapper, ...inner1, ...inner2, ...invertOuterMoves(wrapper)];
+    const start = applyMoves(solvedState(), invertOuterMoves(all));
+    const moves: TimedMove[] = [];
+    let t = 1000;
+    for (const algMoves of [wrapper, inner1, inner2, invertOuterMoves(wrapper)]) {
+      t += 900;
+      for (const m of algMoves) {
+        moves.push({ move: m, t });
+        t += 150;
+      }
+    }
+    const rec = reconstructSolve(start, moves, buffers);
+    expect(rec.solved).toBe(true);
+    expect(rec.steps.some((s) => s.kind === "unknown")).toBe(false);
+    const cases = rec.steps.filter((s) => s.kind === "case");
+    expect(cases).toHaveLength(2);
+    expect(cases.every((s) => s.setupMoves?.length === 1)).toBe(true);
+    expect(cases.every((s) => !s.progress?.suspicious)).toBe(true);
+    // the reported case is the D-conjugate of the inner comm
+    const expected = applyMoves(solvedState(), algToOuterMoves(`D ${EDGE_COMM_1} D'`));
+    const expectedPrim = classifyDiff(diffStates(solvedState(), expected), buffers);
+    expect(JSON.stringify(cases[0].primitive)).toBe(JSON.stringify(expectedPrim));
+  });
   it("keeps a conjugated comm whole instead of carving out its inner comm", () => {
     // [D: [R' D' R, U]] executed with an R R' fidget after the setup D,
     // followed by a comm that itself starts with D. A naive parse strips the

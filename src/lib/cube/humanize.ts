@@ -81,7 +81,12 @@ function sliceFor(l1: Face, p: number): { base: "M" | "E" | "S"; amount: number 
  * wrong fold shifts the frame for everything after it). The caller picks
  * the reading that factors into commutator notation.
  */
-function foldVariants(moves: OuterMove[], orientation: string, cap = 64): HumanToken[][] {
+function foldVariants(
+  moves: OuterMove[],
+  orientation: string,
+  cap = 64,
+  allowMerge = true,
+): HumanToken[][] {
   const startFrame = orientationFrame(orientation); // logical (user) -> core
   const results: HumanToken[][] = [];
   const seen = new Set<string>();
@@ -100,7 +105,7 @@ function foldVariants(moves: OuterMove[], orientation: string, cap = 64): HumanT
     // a sloppy turn can split one layer event in two (F2 F' instead of F):
     // merging adjacent same-face turns is explored as its own branch, since
     // either reading can be the one that folds/factors
-    if (i + 1 < work.length && work[i + 1].face === cur.face) {
+    if (allowMerge && i + 1 < work.length && work[i + 1].face === cur.face) {
       const sum = (cur.amount + work[i + 1].amount) % 4;
       const mergedWork = work.slice();
       mergedWork.splice(i, 2, ...(sum === 0 ? [] : [{ face: cur.face, amount: sum as 1 | 2 | 3 }]));
@@ -147,7 +152,8 @@ function foldVariants(moves: OuterMove[], orientation: string, cap = 64): HumanT
 
 /** Greedy reading (prefer folds), for verbatim display of fumbles. */
 function foldAndTranslate(moves: OuterMove[], orientation: string): HumanToken[] {
-  return foldVariants(moves, orientation, 1)[0] ?? [];
+  // no merge branch: cancelling moves must stay visible verbatim
+  return foldVariants(moves, orientation, 1, false)[0] ?? [];
 }
 
 function simplifyTokens(tokens: HumanToken[]): HumanToken[] {

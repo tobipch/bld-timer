@@ -92,3 +92,12 @@ describe("humanizeMoves", () => {
     }
   });
 });
+
+describe("humanizeMovesVerbatim", () => {
+  it("keeps cancelling moves visible", async () => {
+    const { humanizeMovesVerbatim } = await import("./humanize");
+    const { outerMoveFromString } = await import("./alg");
+    const moves = ["U", "U'"].map(outerMoveFromString);
+    expect(humanizeMovesVerbatim(moves, "")).toBe("U U'");
+  });
+});

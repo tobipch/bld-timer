@@ -1,5 +1,6 @@
 import {
   applyMove,
+  applyMoves,
   composeTransforms,
   diffStates,
   invertTransform,
@@ -10,6 +11,7 @@ import {
   type CubeState,
   type OuterMove,
 } from "../cube/state";
+import { invertOuterMoves } from "../cube/alg";
 import { classifyDiff, unsolvedSummary, type BufferRefs, type Primitive } from "./classify";
 import { continuationFor, type Continuation } from "./suggest";
 
@@ -39,6 +41,12 @@ export interface ReconstructionStep {
   startIdx: number;
   endIdx: number;
   moves: OuterMove[];
+  /**
+   * Setup moves shared with neighboring cases: the solver executed
+   * [setup: this-alg ...] with one wrapper around several cases. The full
+   * standalone alg for this case is setup + moves + setup'.
+   */
+  setupMoves?: OuterMove[];
   /** time from first to last move of the segment */
   execMs: number;
   /** time from the end of the previous segment to this segment's first move */
@@ -147,6 +155,18 @@ function isSuspiciousComm(before: CubeState, after: CubeState, prim: Primitive):
 }
 
 /**
+ * What a step did as a transformation. For setup-sharing steps the executed
+ * span is the inner alg only; the case's true effect is the wrapper
+ * conjugate (the absorbed wrapper fragments contribute exactly this).
+ */
+function stepEffect(step: ReconstructionStep, states: CubeState[]): CubeState {
+  const t = transformBetween(states[step.startIdx], states[step.endIdx + 1]);
+  if (!step.setupMoves) return t;
+  const pT = applyMoves(solvedState(), step.setupMoves);
+  return composeTransforms(composeTransforms(pT, t), invertTransform(pT));
+}
+
+/**
  * Segment the executed moves into BLD primitives via dynamic programming.
  * Cost, lexicographic: (1) unexplained moves, (2) recognition-pause-sized
  * time gaps hidden inside segments, (3) segment count.
@@ -245,7 +265,7 @@ export function reconstructSolve(
     if (tail) peeled.push({ ...tail, prim: { type: "noop" } });
   }
 
-  const merged: { start: number; end: number; prim: Primitive | null }[] = [];
+  const merged: { start: number; end: number; prim: Primitive | null; setup?: OuterMove[] }[] = [];
   for (const seg of peeled) {
     const last = merged[merged.length - 1];
     const bothUnknown = seg.prim === null && last && last.prim === null;
@@ -255,6 +275,63 @@ export function reconstructSolve(
     } else {
       merged.push({ ...seg });
     }
+  }
+
+  // Shared setups: executing [P: case case] leaves P and P' as stray
+  // unknown fragments around clean cases. Conjugating the interior diffs by
+  // P recovers the cases the solver actually memorized (a conjugated
+  // 3-cycle is still a 3-cycle, with the intended buffer), so the wrapper
+  // is absorbed and each case carries setupMoves.
+  for (let i = 0; i < merged.length; i++) {
+    const open = merged[i];
+    if (open.prim !== null || open.end - open.start > 3) continue;
+    const pMoves = timedMoves.slice(open.start, open.end).map((m) => m.move);
+    const pInv = invertOuterMoves(pMoves);
+    let close = -1;
+    for (let j = i + 1; j < merged.length; j++) {
+      if (merged[j].prim !== null) continue;
+      const qMoves = timedMoves.slice(merged[j].start, merged[j].end).map((m) => m.move);
+      if (
+        qMoves.length === pInv.length &&
+        qMoves.every((m, idx) => m.face === pInv[idx].face && m.amount === pInv[idx].amount)
+      ) {
+        close = j;
+      }
+      break; // any other unknown in between disqualifies the pattern
+    }
+    if (close < 0) continue;
+    const interior = merged.slice(i + 1, close);
+    if (!interior.some((s) => s.prim && s.prim.type !== "noop")) continue;
+    const pT = applyMoves(solvedState(), pMoves);
+    const pTInv = invertTransform(pT);
+    const conjugated: (Primitive | null)[] = [];
+    let ok = true;
+    for (const seg of interior) {
+      if (!seg.prim || seg.prim.type === "noop") {
+        conjugated.push(null);
+        continue;
+      }
+      const t = transformBetween(states[seg.start], states[seg.end]);
+      const prim = classifyDiff(
+        diffStates(solvedState(), composeTransforms(composeTransforms(pT, t), pTInv)),
+        buffers,
+      );
+      if (!prim || prim.type === "noop") {
+        ok = false;
+        break;
+      }
+      conjugated.push(prim);
+    }
+    if (!ok) continue;
+    interior.forEach((seg, idx) => {
+      if (conjugated[idx]) {
+        seg.prim = conjugated[idx];
+        seg.setup = pMoves;
+      }
+    });
+    merged.splice(close, 1);
+    merged.splice(i, 1);
+    i--;
   }
 
   const steps: ReconstructionStep[] = [];
@@ -269,6 +346,7 @@ export function reconstructSolve(
       startIdx: seg.start,
       endIdx: seg.end - 1,
       moves,
+      ...(seg.setup ? { setupMoves: seg.setup } : {}),
       execMs: Math.max(0, lastT - firstT),
       recogMs: Math.max(0, firstT - prevEndT),
     });
@@ -319,10 +397,9 @@ export function reconstructSolve(
 function annotateProgress(steps: ReconstructionStep[], states: CubeState[]) {
   let cf = states[0];
   for (const step of steps) {
-    const t = transformBetween(states[step.startIdx], states[step.endIdx + 1]);
     if (step.kind === "unknown") continue; // the block never happened
     const before = cf;
-    cf = composeTransforms(cf, t);
+    cf = composeTransforms(cf, stepEffect(step, states));
     const p = step.primitive;
     if (!p || (p.type !== "cornerComm" && p.type !== "edgeComm")) continue;
     const { newlySolved, broke } = commProgress(before, cf, p);
@@ -390,7 +467,7 @@ function diagnoseMistakes(
     if (small) return [small];
   }
 
-  const T = steps.map((s) => transformBetween(states[s.startIdx], states[s.endIdx + 1]));
+  const T = steps.map((s) => stepEffect(s, states));
   const needed = transformBetween(states[0], solvedState());
 
   const full = diagnoseAlgebraic(steps, T, needed, buffers, "all");

@@ -1,7 +1,7 @@
 import { batch, createMemo, createRoot, createSignal } from "solid-js";
 import { buffersFromNames } from "~/lib/engine/classify";
 import { caseKey, makeOrientationMaps } from "~/lib/engine/present";
-import { outerMoveToString } from "~/lib/cube/alg";
+import { invertOuterMoves, outerMoveToString } from "~/lib/cube/alg";
 import { TimerMachine, type SolveOutcome } from "~/lib/timer/machine";
 import type { CubeIO } from "~/lib/cube-io/types";
 import { VirtualCube } from "~/lib/cube-io/virtual";
@@ -152,15 +152,21 @@ function createApp() {
     };
     const execs = outcome.reconstruction.steps
       .filter((s) => s.kind === "case" && s.primitive)
-      .map((s) => ({
-        sessionId: sid,
-        at: rec.startedAt,
-        caseKey: caseKey(s.primitive!),
-        primitive: s.primitive!,
-        moves: s.moves.map(outerMoveToString).join(" "),
-        execMs: s.execMs,
-        recogMs: s.recogMs,
-      }));
+      .map((s) => {
+        // shared-setup cases: record the full standalone conjugate alg
+        const moves = s.setupMoves
+          ? [...s.setupMoves, ...s.moves, ...invertOuterMoves(s.setupMoves)]
+          : s.moves;
+        return {
+          sessionId: sid,
+          at: rec.startedAt,
+          caseKey: caseKey(s.primitive!),
+          primitive: s.primitive!,
+          moves: moves.map(outerMoveToString).join(" "),
+          execMs: s.execMs,
+          recogMs: s.recogMs,
+        };
+      });
     try {
       const { solve: saved, executions: savedExecs } = await storage.addSolveWithExecutions(rec, execs);
       batch(() => {
