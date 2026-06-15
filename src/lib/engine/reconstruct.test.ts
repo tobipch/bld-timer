@@ -149,6 +149,39 @@ describe("reconstructSolve", () => {
 });
 
 describe("progress-aware parsing", () => {
+  it("treats an alternate pseudo-swap (non-UF/UR parity) as legitimate progress", () => {
+    // The last edge comm parks UB and UL (neither is the buffer) for an
+    // alternate parity that swaps UB/UL — toward home it 'solves no piece',
+    // but it is a real pseudo-swap, recognized via the parity alg's actual
+    // edge swap. The standard parity conjugated by U2 swaps UB/UL.
+    const pseudo = algToOuterMoves("[U' M2 U: [M, U2]]"); // UF: UB UL
+    const parityAlt = algToOuterMoves("U2 r2 D' r2 U' r2 D r2 D' r2 D r2 U' r2 U r2 U2");
+    const exec = [...pseudo, ...parityAlt];
+    const start = applyMoves(solvedState(), invertOuterMoves(exec));
+    const moves: TimedMove[] = [];
+    let t = 1000;
+    for (const block of [pseudo, parityAlt]) {
+      t += 900;
+      for (const m of block) {
+        moves.push({ move: m, t });
+        t += 150;
+      }
+    }
+    const rec = reconstructSolve(start, moves, buffers);
+    expect(rec.solved).toBe(true);
+    const par = rec.steps.find((s) => s.primitive?.type === "parity")!.primitive!;
+    if (par.type !== "parity") throw new Error("unreachable");
+    expect(par.edgeSwap.map(refName).sort()).toEqual(["UB", "UL"]);
+    const edgeStep = rec.steps.find((s) => s.primitive?.type === "edgeComm")!;
+    const edge = edgeStep.primitive!;
+    if (edge.type !== "edgeComm") throw new Error("unreachable");
+    expect(edge.pseudoSwap).toBe(true);
+    // toward the pre-parity goal the comm parks both parity slots = progress;
+    // it must not be flagged a mistrace ('solved no piece')
+    expect(edgeStep.progress?.suspicious).toBe(false);
+    expect(edgeStep.progress?.newlySolved).toBe(2);
+  });
+
   it("re-attributes a setup shared by consecutive cases", () => {
     // the solver executes [U': comm1 comm2] — one wrapper, two cases. The
     // stray U'/U fragments are absorbed and the cases are reported as their
