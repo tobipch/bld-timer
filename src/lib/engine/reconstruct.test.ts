@@ -176,10 +176,29 @@ describe("progress-aware parsing", () => {
     const edge = edgeStep.primitive!;
     if (edge.type !== "edgeComm") throw new Error("unreachable");
     expect(edge.pseudoSwap).toBe(true);
-    // toward the pre-parity goal the comm parks both parity slots = progress;
-    // it must not be flagged a mistrace ('solved no piece')
+    // the comm parks both parity slots for the parity alg — recognized as
+    // the pseudo-swap, so not flagged a mistrace ('solved no piece')
     expect(edgeStep.progress?.suspicious).toBe(false);
-    expect(edgeStep.progress?.newlySolved).toBe(2);
+    expect(edgeStep.progress?.suboptimal).toBeFalsy();
+  });
+
+  it("does not flag a comm that breaks into a flip (routes through a flipped edge)", () => {
+    // UR and UB are flipped in place; the comm [R' F R, S] (UF: MD) routes
+    // its second target through the flipped UR edge — a deliberate
+    // break-into-flips, not a suboptimal one-piece comm
+    const before = solvedState();
+    before.eo[0] = 1; // UR flipped in place (EDGE_SLOTS[0])
+    before.eo[3] = 1; // UB flipped in place (keeps flip parity even)
+    const exec = algToOuterMoves("[R' F R, S]");
+    const moves: TimedMove[] = exec.map((m, i) => ({ move: m, t: 1000 + i * 150 }));
+    const rec = reconstructSolve(before, moves, buffers);
+    const edge = rec.steps.find((s) => s.primitive?.type === "edgeComm")!;
+    const prim = edge.primitive!;
+    if (prim.type !== "edgeComm") throw new Error("unreachable");
+    // a target lands on the flipped-in-place UR edge
+    expect(prim.targets.some((t) => t.slot === 0)).toBe(true);
+    expect(edge.progress?.suboptimal).toBeFalsy();
+    expect(edge.progress?.suspicious).toBe(false);
   });
 
   it("re-attributes a setup shared by consecutive cases", () => {

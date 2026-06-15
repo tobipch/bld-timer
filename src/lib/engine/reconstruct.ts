@@ -121,53 +121,52 @@ function better(a: DpEntry, b: DpEntry): boolean {
 }
 
 /**
- * Solving progress a comm makes (its own buffer slot excluded), measured
- * toward `goal` — the state the orbit should be in. For most of the solve
- * that is solved; when a parity is pending it is solved-except-the-parity-
- * swap, so a comm that parks pieces into the pseudo-swap arrangement (UF/UR
- * or any alternate pair the parity alg restores) counts as progress.
+ * Solving progress a comm makes toward home (its own buffer slot excluded).
+ * The pseudo-swap and break-into-flip comms legitimately make little home
+ * progress; they are recognized separately and exempted from the flags
+ * that consume this, so earlier comms that solve those same slots to their
+ * true home still count normally.
  */
 function commProgress(
   before: CubeState,
   after: CubeState,
   prim: Extract<Primitive, { type: "cornerComm" | "edgeComm" }>,
-  goal: CubeState = SOLVED_STATE,
 ): { newlySolved: number; broke: number } {
   const isCorner = prim.type === "cornerComm";
   const permB = isCorner ? before.cp : before.ep;
   const oriB = isCorner ? before.co : before.eo;
   const permA = isCorner ? after.cp : after.ep;
   const oriA = isCorner ? after.co : after.eo;
-  const goalPerm = isCorner ? goal.cp : goal.ep;
-  const goalOri = isCorner ? goal.co : goal.eo;
   const count = isCorner ? 8 : 12;
   let newlySolved = 0;
   let broke = 0;
   for (let s = 0; s < count; s++) {
     if (s === prim.buffer.slot) continue;
-    const wasSolved = permB[s] === goalPerm[s] && oriB[s] === goalOri[s];
-    const nowSolved = permA[s] === goalPerm[s] && oriA[s] === goalOri[s];
+    const wasSolved = permB[s] === s && oriB[s] === 0;
+    const nowSolved = permA[s] === s && oriA[s] === 0;
     if (!wasSolved && nowSolved) newlySolved++;
     if (wasSolved && !nowSolved) broke++;
   }
   return { newlySolved, broke };
 }
 
-const SOLVED_STATE = solvedState();
-
 /**
- * The state the cube should be in just before the parity/LTCT alg: solved
- * with the parity's own 2-swaps undone. Comms are evaluated as progress
- * toward this, so deliberately parking pieces for the parity alg (the
- * pseudo-swap, standard or alternate) reads as solving rather than as a
- * mistrace. Without parity this is simply the solved state.
+ * A comm that routes a target through an in-place-misoriented piece — a
+ * flipped edge (edge comm) or twisted corner (corner comm). This is the
+ * "break into flips/twists" technique: rather than finishing the pair and
+ * spending a separate (long) 2-flip / 2-twist alg, the solver routes the
+ * cycle through the misoriented piece, doing two short comms instead. Such
+ * a comm legitimately solves only one piece, so it must not be flagged
+ * suboptimal.
  */
-function preParityGoal(steps: ReconstructionStep[], states: CubeState[]): CubeState {
-  const idx = steps.findIndex(
-    (s) => s.primitive && (s.primitive.type === "parity" || s.primitive.type === "ltct"),
-  );
-  if (idx < 0) return SOLVED_STATE;
-  return invertTransform(stepEffect(steps[idx], states));
+function isBreakIntoMisorient(
+  before: CubeState,
+  prim: Extract<Primitive, { type: "cornerComm" | "edgeComm" }>,
+): boolean {
+  const isCorner = prim.type === "cornerComm";
+  const perm = isCorner ? before.cp : before.ep;
+  const ori = isCorner ? before.co : before.eo;
+  return prim.targets.some((t) => perm[t.slot] === t.slot && ori[t.slot] !== 0);
 }
 
 /**
@@ -421,7 +420,6 @@ export function reconstructSolve(
  * executed algs aren't flagged as follow-up errors.
  */
 function annotateProgress(steps: ReconstructionStep[], states: CubeState[]) {
-  const goal = preParityGoal(steps, states);
   let cf = states[0];
   for (const step of steps) {
     if (step.kind === "unknown") continue; // the block never happened
@@ -429,15 +427,23 @@ function annotateProgress(steps: ReconstructionStep[], states: CubeState[]) {
     cf = composeTransforms(cf, stepEffect(step, states));
     const p = step.primitive;
     if (!p || (p.type !== "cornerComm" && p.type !== "edgeComm")) continue;
-    const { newlySolved, broke } = commProgress(before, cf, p, goal);
-    // a comm that makes no progress toward the pre-parity goal is a mistrace
-    // — unless it is the recognized pseudo-swap, which is progress by design
-    const suspicious = newlySolved === 0 && !p.pseudoSwap;
+    // Progress is measured toward home. The pseudo-swap is the one comm that
+    // legitimately doesn't (it parks pieces for the parity alg) — but it is
+    // recognized via markPseudoSwaps and exempted below, so earlier comms
+    // that solve those same slots to their true home still count normally.
+    const { newlySolved, broke } = commProgress(before, cf, p);
+    const suspicious = newlySolved === 0 && !p.pseudoSwap && !isBreakIntoMisorient(before, p);
     // when the buffer held an unsolved piece, the straightforward pair was
-    // available and solves two — settling for one is worth a hint (unless
-    // it's the pseudo-swap, which parks a piece by design)
+    // available and solves two — settling for one is worth a hint, unless
+    // it's the pseudo-swap or a deliberate break into a flip/twist (both
+    // park a piece on purpose)
     const cont = continuationFor(before, p.buffer);
-    const suboptimal = !suspicious && cont.kind === "pair" && newlySolved < 2 && !p.pseudoSwap;
+    const suboptimal =
+      !suspicious &&
+      cont.kind === "pair" &&
+      newlySolved < 2 &&
+      !p.pseudoSwap &&
+      !isBreakIntoMisorient(before, p);
     step.progress = { newlySolved, broke, suspicious, suboptimal };
     if (suspicious || suboptimal) {
       step.progress.suggestion = cont;
