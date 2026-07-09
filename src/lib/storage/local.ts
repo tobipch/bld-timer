@@ -56,6 +56,12 @@ export function createLocalStorageAdapter(): StorageAdapter {
       write(KEY.executions, [...existing, ...executions]);
       return { solve, executions };
     },
+    async updateSolveFeedback(id, patch) {
+      write(
+        KEY.solves,
+        read<SolveRecord>(KEY.solves).map((s) => (s.id === id ? { ...s, ...patch } : s)),
+      );
+    },
     async deleteSolve(id) {
       write(
         KEY.solves,

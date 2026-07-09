@@ -878,3 +878,176 @@ select:focus {
   padding: 3px 8px;
   cursor: help;
 }
+
+/* ---- restructured reconstruction ---- */
+
+.recon-group {
+  margin-top: 14px;
+}
+
+.recon-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+
+.recon-group-name {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.step-case {
+  display: block;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.step-row1 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.step-letters {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.step-row1 .step-times {
+  margin-left: auto;
+}
+
+.step-row2 {
+  font-size: 12px;
+  padding-left: 2px;
+  margin-top: 1px;
+}
+
+/* ---- replay ---- */
+
+.replay-btn {
+  border: none;
+  background: none;
+  padding: 0 6px;
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.replay-btn:hover {
+  color: var(--text);
+}
+
+.replay-panel {
+  position: relative;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.replay-close {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  z-index: 2;
+  font-size: 18px;
+}
+
+.cube-replay {
+  width: 100%;
+}
+
+/* ---- diagnosis feedback ---- */
+
+.diag-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.diag-row .diag-head {
+  flex: 1;
+}
+
+.confirm-btn {
+  white-space: nowrap;
+  font-size: 12px;
+  padding: 3px 10px;
+}
+
+.confirm-btn.on {
+  background: var(--good);
+  border-color: var(--good);
+  color: #fff;
+}
+
+.back-path {
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+/* ---- solve notes / feedback page ---- */
+
+.solve-notes textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.solve-notes-hint {
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+.solve-notes-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.feedback-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.feedback-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.feedback-entry summary {
+  cursor: pointer;
+}
+
+.feedback-note-preview {
+  margin-top: 4px;
+  padding: 6px 10px;
+  background: var(--bg-inset);
+  border-left: 3px solid var(--accent-dim);
+  border-radius: 4px;
+  white-space: pre-wrap;
+}
+
+.feedback-entry .recon,
+.feedback-entry .solve-notes {
+  margin-top: 12px;
+  border: none;
+  padding: 0;
+}

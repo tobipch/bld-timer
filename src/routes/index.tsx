@@ -3,6 +3,7 @@ import { ConnectBar } from "~/components/ConnectBar";
 import { DevPanel } from "~/components/DevPanel";
 import { ReconstructionView } from "~/components/ReconstructionView";
 import { ScrambleView } from "~/components/ScrambleView";
+import { SolveNotes } from "~/components/SolveNotes";
 import { StatsPanel } from "~/components/StatsPanel";
 import { TimeList } from "~/components/TimeList";
 import { TimerDisplay } from "~/components/TimerDisplay";
@@ -29,12 +30,14 @@ export default function TimerPage() {
       spaceDown = true;
       const phase = app.snapshot().phase;
       if (phase === "memo" || phase === "exec") {
+        // stopping is immediate, on press
         app.trigger();
         return;
       }
       if (phase !== "ready") return;
+      // starting happens on release; holding arms the timer first
       if (settings.holdMs <= 0) {
-        app.trigger();
+        setArmed(true);
       } else {
         holdTimer = setTimeout(() => setArmed(true), settings.holdMs);
       }
@@ -76,14 +79,26 @@ export default function TimerPage() {
           <TimerDisplay armed={armed()} />
           <Show when={selectedSolve()}>
             {(s) => (
-              <ReconstructionView
-                rec={s().reconstruction}
-                scramble={s().scramble}
-                moves={s().moves}
-                title={`${s().result === "dnf" ? "DNF" : formatMs(s().totalMs)} — memo ${formatMs(
-                  s().memoMs,
-                )} · exec ${formatMs(s().execMs)}`}
-              />
+              <>
+                <ReconstructionView
+                  rec={s().reconstruction}
+                  scramble={s().scramble}
+                  moves={s().moves}
+                  title={`${s().result === "dnf" ? "DNF" : formatMs(s().totalMs)} — memo ${formatMs(
+                    s().memoMs,
+                  )} · exec ${formatMs(s().execMs)}`}
+                  feedback={{
+                    confirmed: s().confirmedFindings ?? [],
+                    onToggleFinding: (idx) => {
+                      const cur = new Set(s().confirmedFindings ?? []);
+                      if (cur.has(idx)) cur.delete(idx);
+                      else cur.add(idx);
+                      void app.setSolveFeedback(s().id, { confirmedFindings: [...cur].sort() });
+                    },
+                  }}
+                />
+                <SolveNotes solve={s()} />
+              </>
             )}
           </Show>
           <DevPanel />

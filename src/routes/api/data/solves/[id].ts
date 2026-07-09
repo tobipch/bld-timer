@@ -10,3 +10,22 @@ export const DELETE = (event: APIEvent) =>
     await db.delete(schema.solve).where(and(eq(schema.solve.id, id), eq(schema.solve.userId, userId)));
     return json({ ok: true });
   });
+
+export const PATCH = (event: APIEvent) =>
+  handle(async () => {
+    const { db, userId } = await requireUser(event.request);
+    const id = event.params.id;
+    const body = (await event.request.json()) as {
+      note?: string | null;
+      confirmedFindings?: number[] | null;
+    };
+    const patch: Partial<{ note: string | null; confirmedFindings: number[] | null }> = {};
+    if ("note" in body) patch.note = body.note ?? null;
+    if ("confirmedFindings" in body) patch.confirmedFindings = body.confirmedFindings ?? null;
+    if (Object.keys(patch).length === 0) return json({ error: "empty patch" }, 400);
+    await db
+      .update(schema.solve)
+      .set(patch)
+      .where(and(eq(schema.solve.id, id), eq(schema.solve.userId, userId)));
+    return json({ ok: true });
+  });

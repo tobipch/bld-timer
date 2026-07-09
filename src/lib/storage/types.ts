@@ -19,6 +19,15 @@ export interface SolveRecord {
   /** outer move + timestamp (cube clock when available) */
   moves: { m: string; t: number }[];
   reconstruction: Reconstruction;
+  /** user feedback on this solve */
+  note?: string | null;
+  /** indices of reconstruction findings the user confirmed as correct */
+  confirmedFindings?: number[] | null;
+}
+
+export interface SolveFeedbackPatch {
+  note?: string | null;
+  confirmedFindings?: number[] | null;
 }
 
 export interface AlgExecution {
@@ -44,6 +53,7 @@ export interface StorageAdapter {
     execs: Omit<AlgExecution, "id" | "solveId">[],
   ): Promise<{ solve: SolveRecord; executions: AlgExecution[] }>;
   deleteSolve(id: string): Promise<void>;
+  updateSolveFeedback(id: string, patch: SolveFeedbackPatch): Promise<void>;
   listExecutions(): Promise<AlgExecution[]>;
   deleteExecution(id: string): Promise<void>;
 }

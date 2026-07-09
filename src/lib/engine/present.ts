@@ -174,3 +174,34 @@ export function describePrimitive(
       };
   }
 }
+
+/**
+ * Plain-text description of a continuation suggestion, shared by the UI and
+ * the feedback export.
+ */
+export function describeContinuation(
+  c: import("./suggest").Continuation,
+  scheme: LetterScheme,
+  maps: OrientationMaps,
+): string {
+  const L = (r: StickerRef) => letterFor(r, scheme, maps);
+  const routes =
+    (c.kind === "pair" || c.kind === "closes") && c.flipRoutes?.length
+      ? ` — or break into the flip: ${c.flipRoutes
+          .slice(0, 2)
+          .map((route) => route.map(([a, b]) => `${L(a)}${L(b)}`).join(" "))
+          .join(" / ")}`
+      : "";
+  switch (c.kind) {
+    case "pair":
+      return `the state called for ${L(c.pair[0])}${L(c.pair[1])}${routes}`;
+    case "closes":
+      return `the state called for ${L(c.first)}, closing the cycle (then break to an unsolved piece)${routes}`;
+    case "breaks": {
+      const opts = c.options.slice(0, 5).map(([a, b]) => `${L(a)}${L(b)}`);
+      return `the buffer was solved — a cycle break was needed, e.g. ${opts.join(", ")}${
+        c.options.length > 5 ? ", …" : ""
+      }`;
+    }
+  }
+}

@@ -53,6 +53,12 @@ export function createRemoteAdapter(): StorageAdapter {
         post({ solve: rec, executions: execs }),
       ),
     deleteSolve: (id) => call(`/api/data/solves/${id}`, { method: "DELETE" }),
+    updateSolveFeedback: (id, patch) =>
+      call(`/api/data/solves/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(patch),
+      }),
     listExecutions: () => call<AlgExecution[]>("/api/data/executions"),
     deleteExecution: (id) => call(`/api/data/executions/${id}`, { method: "DELETE" }),
   };

@@ -85,6 +85,8 @@ export const solve = pgTable(
     scramble: text("scramble").notNull(),
     moves: jsonb("moves").notNull(),
     reconstruction: jsonb("reconstruction").notNull(),
+    note: text("note"),
+    confirmedFindings: jsonb("confirmed_findings"),
   },
   (t) => [index("solve_user_idx").on(t.userId), index("solve_session_idx").on(t.sessionId)],
 );

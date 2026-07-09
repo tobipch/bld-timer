@@ -7,7 +7,13 @@ import type { CubeIO } from "~/lib/cube-io/types";
 import { VirtualCube } from "~/lib/cube-io/virtual";
 import { createLocalStorageAdapter } from "~/lib/storage/local";
 import { createRemoteAdapter, fetchServerStatus, type ServerStatus } from "~/lib/storage/remote";
-import type { AlgExecution, Session, SolveRecord, StorageAdapter } from "~/lib/storage/types";
+import type {
+  AlgExecution,
+  Session,
+  SolveFeedbackPatch,
+  SolveRecord,
+  StorageAdapter,
+} from "~/lib/storage/types";
 import { settings, setSettings } from "./settings";
 
 /**
@@ -193,6 +199,16 @@ function createApp() {
     return true;
   }
 
+  async function setSolveFeedback(id: string, patch: SolveFeedbackPatch) {
+    // optimistic: the feedback is visible immediately, storage catches up
+    setSolves((xs) => xs.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+    try {
+      await storage.updateSolveFeedback(id, patch);
+    } catch (e) {
+      setError(`saving feedback failed: ${e}`);
+    }
+  }
+
   async function deleteSolve(id: string) {
     await storage.deleteSolve(id);
     setSolves((xs) => xs.filter((s) => s.id !== id));
@@ -233,6 +249,7 @@ function createApp() {
     trigger,
     newScramble,
     deleteSolve,
+    setSolveFeedback,
     deleteExecution,
     addSession,
     intrinsicBuffers,

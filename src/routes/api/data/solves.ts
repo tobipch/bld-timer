@@ -20,6 +20,8 @@ export const GET = (event: APIEvent) =>
         scramble: r.scramble,
         moves: r.moves,
         reconstruction: r.reconstruction,
+        note: r.note,
+        confirmedFindings: r.confirmedFindings,
       })),
     );
   });

@@ -48,7 +48,7 @@ export function TimerDisplay(props: { armed: boolean }) {
       case "scrambling":
         return "scramble the cube";
       case "ready":
-        return props.armed ? "release to start" : "ready — press space to start memo";
+        return props.armed ? "release space to start" : "ready — hold space, release to start memo";
       case "memo":
         return "MEMO";
       case "exec":

@@ -3,12 +3,14 @@ import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http";
 import { sql } from "drizzle-orm";
 import * as schema from "./schema";
 import migration0000 from "../../../drizzle/0000_absent_forgotten_one.sql?raw";
+import migration0001 from "../../../drizzle/0001_common_skreet.sql?raw";
 
 export type Db = NeonHttpDatabase<typeof schema>;
 
 /** Embedded migrations so serverless deployments self-migrate on startup. */
 const MIGRATIONS: { tag: string; sqlText: string }[] = [
   { tag: "0000_absent_forgotten_one", sqlText: migration0000 },
+  { tag: "0001_common_skreet", sqlText: migration0001 },
 ];
 
 let cached: Db | null | undefined;

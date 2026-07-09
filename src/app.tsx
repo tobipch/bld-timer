@@ -45,6 +45,9 @@ function Layout(props: { children?: any }) {
           <A href="/algs" activeClass="active">
             Algs
           </A>
+          <A href="/feedback" activeClass="active">
+            Feedback
+          </A>
           <A href="/settings" activeClass="active">
             Settings
           </A>
