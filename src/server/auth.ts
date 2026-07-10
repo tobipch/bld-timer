@@ -1,6 +1,11 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { genericOAuth } from "better-auth/plugins";
 import { getDb, schema, type Db } from "./db";
+
+export function wcaEnabled(): boolean {
+  return !!(process.env.WCA_CLIENT_ID && process.env.WCA_CLIENT_SECRET);
+}
 
 function createAuth(db: Db) {
   return betterAuth({
@@ -16,6 +21,49 @@ function createAuth(db: Db) {
     emailAndPassword: {
       enabled: true,
     },
+    plugins: wcaEnabled()
+      ? [
+          genericOAuth({
+            config: [
+              {
+                providerId: "wca",
+                clientId: process.env.WCA_CLIENT_ID!,
+                clientSecret: process.env.WCA_CLIENT_SECRET!,
+                authorizationUrl: "https://www.worldcubeassociation.org/oauth/authorize",
+                tokenUrl: "https://www.worldcubeassociation.org/oauth/token",
+                scopes: ["public", "email"],
+                async getUserInfo(tokens) {
+                  const res = await fetch("https://www.worldcubeassociation.org/api/v0/me", {
+                    headers: { Authorization: `Bearer ${tokens.accessToken}` },
+                  });
+                  if (!res.ok) return null;
+                  const { me } = (await res.json()) as {
+                    me: {
+                      id: number;
+                      name: string;
+                      email?: string;
+                      wca_id?: string | null;
+                      avatar?: { url?: string };
+                    };
+                  };
+                  if (!me) return null;
+                  return {
+                    id: String(me.id),
+                    name: me.name,
+                    // WCA only shares the email with the "email" scope; the
+                    // fallback keeps accounts working without it
+                    email: me.email ?? `${me.wca_id ?? me.id}@users.worldcubeassociation.org`,
+                    emailVerified: true,
+                    image: me.avatar?.url,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                  };
+                },
+              },
+            ],
+          }),
+        ]
+      : [],
   });
 }
 

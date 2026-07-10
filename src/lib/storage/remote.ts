@@ -5,6 +5,8 @@ import type { AlgExecution, Session, SolveRecord, StorageAdapter } from "./types
 export interface ServerStatus {
   db: boolean;
   guestAllowed: boolean;
+  /** WCA OAuth login configured on the server */
+  wca?: boolean;
   user: { id: string; email: string; name: string } | null;
 }
 

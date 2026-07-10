@@ -60,6 +60,23 @@ export default function LoginPage() {
               </button>
             </p>
           </Show>
+          <Show when={app.server()?.wca}>
+            <button
+              class="primary wca-btn"
+              disabled={busy()}
+              onClick={() =>
+                void authClient.signIn
+                  .oauth2({ providerId: "wca", callbackURL: "/" })
+                  .then((res) => {
+                    if (res.error) setError(res.error.message ?? "WCA sign-in failed");
+                  })
+                  .catch((err) => setError(`${err}`))
+              }
+            >
+              Sign in with WCA
+            </button>
+            <div class="login-divider muted">or use email</div>
+          </Show>
           <form onSubmit={submit} class="login-form">
             <Show when={mode() === "signup"}>
               <input placeholder="name" value={name()} onInput={(e) => setName(e.currentTarget.value)} />

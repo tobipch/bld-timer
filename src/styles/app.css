@@ -1273,3 +1273,14 @@ select:focus {
     width: 100px;
   }
 }
+
+.wca-btn {
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.login-divider {
+  text-align: center;
+  font-size: 13px;
+  margin: 8px 0 4px;
+}
