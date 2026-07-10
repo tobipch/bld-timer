@@ -1197,3 +1197,79 @@ select:focus {
   cursor: pointer;
   font-size: 13px;
 }
+
+/* ---- letter scheme cube net (algfolded-style) ---- */
+
+.lsc-net {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+  overflow-x: auto;
+}
+
+.lsc-row {
+  display: flex;
+  gap: 6px;
+}
+
+.lsc-spacer {
+  width: 118px;
+  flex-shrink: 0;
+}
+
+.lsc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 34px);
+  grid-template-rows: repeat(3, 34px);
+  gap: 2px;
+  padding: 3px;
+  border: 2px solid var(--border);
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+
+.lsc-input {
+  width: 34px;
+  height: 34px;
+  text-align: center;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 4px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.lsc-input.lsc-edge {
+  font-weight: 400;
+}
+
+.lsc-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.lsc-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  border-radius: 4px;
+}
+
+@media (max-width: 640px) {
+  .lsc-grid {
+    grid-template-columns: repeat(3, 28px);
+    grid-template-rows: repeat(3, 28px);
+  }
+  .lsc-input {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  .lsc-spacer {
+    width: 100px;
+  }
+}

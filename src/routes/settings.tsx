@@ -1,34 +1,7 @@
-import { For, Show } from "solid-js";
+import { Show } from "solid-js";
+import { LetterSchemeCube } from "~/components/LetterSchemeCube";
 import { ProfileEditor } from "~/components/ProfileEditor";
-import { SPEFFZ_CORNERS, SPEFFZ_EDGES } from "~/lib/cube/speffz";
 import { resetLetterScheme, settings, setSettings } from "~/state/settings";
-
-/** Sticker names in Speffz letter order, the same layout as the alg sheets. */
-const CORNER_ORDER = Object.keys(SPEFFZ_CORNERS);
-const EDGE_ORDER = Object.keys(SPEFFZ_EDGES);
-
-function SchemeGrid(props: { kind: "corners" | "edges" }) {
-  const names = props.kind === "corners" ? CORNER_ORDER : EDGE_ORDER;
-  return (
-    <div class="scheme-grid">
-      <For each={names}>
-        {(name) => (
-          <label class="scheme-cell">
-            <span class="muted mono">{name}</span>
-            <input
-              class="mono"
-              maxLength={2}
-              value={settings.letterScheme[props.kind][name] ?? ""}
-              onInput={(e) =>
-                setSettings("letterScheme", props.kind, name, e.currentTarget.value.trim())
-              }
-            />
-          </label>
-        )}
-      </For>
-    </div>
-  );
-}
 
 export default function SettingsPage() {
   return (
@@ -88,21 +61,19 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <details class="card">
-        <summary>
-          <h3 style={{ display: "inline" }}>Advanced — letter scheme</h3>
-        </summary>
-        <p class="muted">Speffz by default. Each sticker can carry your own letter (max 2 chars).</p>
-        <h4>Corners</h4>
-        <SchemeGrid kind="corners" />
-        <h4>Edges</h4>
-        <SchemeGrid kind="edges" />
+      <div class="card">
+        <h3>Letter scheme</h3>
+        <p class="muted">
+          Speffz by default — edit any sticker directly on the cube (corners in the corners, edges on
+          the edges). Colors follow your color scheme.
+        </p>
+        <LetterSchemeCube />
         <button onClick={() => resetLetterScheme()}>Reset to Speffz</button>
         <p class="muted small-note">
           Derived orientation (from your color scheme):{" "}
           <span class="mono">{settings.orientation || "(none — white top, green front)"}</span>
         </p>
-      </details>
+      </div>
     </div>
   );
 }
