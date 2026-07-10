@@ -21,6 +21,15 @@ function createAuth(db: Db) {
     emailAndPassword: {
       enabled: true,
     },
+    account: {
+      accountLinking: {
+        enabled: true,
+        // WCA verifies its emails, so a WCA login with the same address as
+        // an existing email/password account links to it instead of failing
+        // with account_not_linked
+        trustedProviders: ["wca"],
+      },
+    },
     plugins: wcaEnabled()
       ? [
           genericOAuth({
