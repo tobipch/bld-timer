@@ -1,12 +1,17 @@
 import { createEffect, createRoot } from "solid-js";
 import { createStore } from "solid-js/store";
-import { defaultBuffers, defaultLetterScheme, type BufferConfig, type LetterScheme } from "~/lib/cube/speffz";
+import { defaultBuffers, type BufferConfig, defaultLetterScheme, type LetterScheme } from "~/lib/cube/speffz";
+import { defaultProfile, type TechniqueProfile } from "~/lib/engine/profile";
 
 export interface Settings {
   letterScheme: LetterScheme;
-  /** rotation sequence like "x y"; empty = white top, green front */
+  /** rotation sequence like "x y"; derived from the color scheme choice */
   orientation: string;
+  /** color scheme: which colors face up/front when solving */
+  topColor: string;
+  frontColor: string;
   buffers: BufferConfig;
+  profile: TechniqueProfile;
   /** space hold before a solve starts; 0 = instant */
   holdMs: number;
   showRunningTime: boolean;
@@ -21,7 +26,10 @@ function defaults(): Settings {
   return {
     letterScheme: defaultLetterScheme(),
     orientation: "",
+    topColor: "white",
+    frontColor: "green",
     buffers: defaultBuffers(),
+    profile: defaultProfile(),
     holdMs: 0,
     showRunningTime: true,
     showTimeDuringMemo: true,
@@ -48,6 +56,7 @@ function load(): Settings {
         edges: parsed.buffers?.edges ?? d.buffers.edges,
         corners: parsed.buffers?.corners ?? d.buffers.corners,
       },
+      profile: { ...d.profile, ...(parsed.profile ?? {}) },
     };
   } catch {
     return defaults();

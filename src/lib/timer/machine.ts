@@ -1,6 +1,7 @@
 import { applyMove, isSolved, solvedState, type CubeState, type OuterMove } from "../cube/state";
 import { reconstructSolve, type Reconstruction, type TimedMove } from "../engine/reconstruct";
 import type { BufferRefs } from "../engine/classify";
+import type { JudgeContext } from "../engine/judge";
 import { ScrambleFollower } from "./follow";
 
 /**
@@ -63,10 +64,14 @@ export class TimerMachine {
 
   private listeners = new Set<() => void>();
 
-  constructor(private buffers: BufferRefs) {}
+  constructor(
+    private buffers: BufferRefs,
+    private judgeCtx?: JudgeContext,
+  ) {}
 
-  setBuffers(buffers: BufferRefs) {
+  setBuffers(buffers: BufferRefs, judgeCtx?: JudgeContext) {
     this.buffers = buffers;
+    this.judgeCtx = judgeCtx;
   }
 
   subscribe(fn: () => void): () => void {
@@ -206,7 +211,7 @@ export class TimerMachine {
       t: useCube ? m.tCube! : m.tLocal,
     }));
     const startState = this.scrambledState ?? solvedState();
-    const reconstruction = reconstructSolve(startState, timed, this.buffers);
+    const reconstruction = reconstructSolve(startState, timed, this.buffers, undefined, true, this.judgeCtx);
 
     this.lastOutcome = {
       result: solved ? "ok" : "dnf",

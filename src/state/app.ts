@@ -1,5 +1,6 @@
 import { batch, createMemo, createRoot, createSignal } from "solid-js";
 import { buffersFromNames } from "~/lib/engine/classify";
+import type { JudgeContext } from "~/lib/engine/judge";
 import { caseKey, makeOrientationMaps } from "~/lib/engine/present";
 import { invertOuterMoves, outerMoveToString } from "~/lib/cube/alg";
 import { TimerMachine, type SolveOutcome } from "~/lib/timer/machine";
@@ -25,25 +26,44 @@ import { settings, setSettings } from "./settings";
 function createApp() {
   let storage: StorageAdapter = createLocalStorageAdapter();
 
-  // intrinsic-frame buffers derived from settings (user frame + orientation)
+  // intrinsic-frame buffers derived from settings (user frame + orientation);
+  // without floating, cycles are always labeled from the standard buffer
   const intrinsicBuffers = createMemo(() => {
     const maps = makeOrientationMaps(settings.orientation);
-    const corners = settings.buffers.corners
+    const cornerNames = settings.profile.floating
+      ? settings.buffers.corners
+      : settings.buffers.corners.slice(0, 1);
+    const edgeNames = settings.profile.floating
+      ? settings.buffers.edges
+      : settings.buffers.edges.slice(0, 1);
+    const corners = cornerNames
       .map((n) => maps.cornerNameToIntrinsic(n))
       .filter((r): r is NonNullable<typeof r> => r !== null);
-    const edges = settings.buffers.edges
+    const edges = edgeNames
       .map((n) => maps.edgeNameToIntrinsic(n))
       .filter((r): r is NonNullable<typeof r> => r !== null);
     return { corners, edges };
   });
 
-  const machine = new TimerMachine(intrinsicBuffers());
+  const judgeContext = createMemo<JudgeContext>(() => {
+    const maps = makeOrientationMaps(settings.orientation);
+    const bufs = intrinsicBuffers();
+    return {
+      profile: { ...settings.profile },
+      standardCorner: bufs.corners[0] ?? null,
+      standardEdge: bufs.edges[0] ?? null,
+      orozcoCornerHelper: maps.cornerNameToIntrinsic(settings.profile.orozcoCornerHelper),
+      orozcoEdgeHelper: maps.edgeNameToIntrinsic(settings.profile.orozcoEdgeHelper),
+    };
+  });
+
+  const machine = new TimerMachine(intrinsicBuffers(), judgeContext());
 
   const [tick, setTick] = createSignal(0);
   machine.subscribe(() => setTick((t) => t + 1));
   const snapshot = createMemo(() => {
     tick();
-    machine.setBuffers(intrinsicBuffers());
+    machine.setBuffers(intrinsicBuffers(), judgeContext());
     return machine.snapshot();
   });
 

@@ -1,5 +1,5 @@
-import { createMemo, For, Show } from "solid-js";
-import { cornerStickerByName, edgeStickerByName } from "~/lib/cube/geometry";
+import { For, Show } from "solid-js";
+import { ProfileEditor } from "~/components/ProfileEditor";
 import { SPEFFZ_CORNERS, SPEFFZ_EDGES } from "~/lib/cube/speffz";
 import { resetLetterScheme, settings, setSettings } from "~/state/settings";
 
@@ -30,75 +30,27 @@ function SchemeGrid(props: { kind: "corners" | "edges" }) {
   );
 }
 
-function BufferList(props: { kind: "corners" | "edges" }) {
-  const list = () => settings.buffers[props.kind];
-  const validate = (name: string) =>
-    props.kind === "corners" ? cornerStickerByName(name) !== null : edgeStickerByName(name) !== null;
-
-  const move = (i: number, dir: -1 | 1) => {
-    const xs = [...list()];
-    const j = i + dir;
-    if (j < 0 || j >= xs.length) return;
-    [xs[i], xs[j]] = [xs[j], xs[i]];
-    setSettings("buffers", props.kind, xs);
-  };
-
-  const remove = (i: number) => {
-    setSettings(
-      "buffers",
-      props.kind,
-      list().filter((_, k) => k !== i),
-    );
-  };
-
-  const add = (e: SubmitEvent) => {
-    e.preventDefault();
-    const input = (e.currentTarget as HTMLFormElement).elements.namedItem("buf") as HTMLInputElement;
-    const name = input.value.trim().toUpperCase();
-    if (!name || !validate(name) || list().includes(name)) return;
-    setSettings("buffers", props.kind, [...list(), name]);
-    input.value = "";
-  };
-
-  return (
-    <div class="bufferlist">
-      <For each={list()}>
-        {(b, i) => (
-          <span class="buffer-chip mono">
-            {b}
-            <button onClick={() => move(i(), -1)} title="higher priority">
-              ↑
-            </button>
-            <button onClick={() => move(i(), 1)} title="lower priority">
-              ↓
-            </button>
-            <button onClick={() => remove(i())} title="remove">
-              ×
-            </button>
-          </span>
-        )}
-      </For>
-      <form onSubmit={add} class="buffer-add">
-        <input name="buf" class="mono" placeholder={props.kind === "corners" ? "e.g. RDF" : "e.g. LU"} size={6} />
-        <button type="submit">Add</button>
-      </form>
-    </div>
-  );
-}
-
 export default function SettingsPage() {
-  const orientationValid = createMemo(() => {
-    const v = settings.orientation.trim();
-    return v === "" || /^([xyz][2']?\s*)+$/.test(v);
-  });
-
   return (
     <div class="settings-page">
+      <div class="card">
+        <h3>Your method</h3>
+        <p class="muted">
+          The solve analysis judges every alg against this profile — keep it accurate.
+        </p>
+        <ProfileEditor />
+        <Show when={settings.profile.onboarded}>
+          <button onClick={() => setSettings("profile", "onboarded", false)}>
+            Re-run onboarding
+          </button>
+        </Show>
+      </div>
+
       <div class="card">
         <h3>Timer</h3>
         <div class="settings-rows">
           <label>
-            Space hold time (ms, 0 = instant)
+            Space hold time before release starts the timer (ms, 0 = instant)
             <input
               type="number"
               min="0"
@@ -125,7 +77,10 @@ export default function SettingsPage() {
           </label>
           <label>
             Theme
-            <select value={settings.theme} onChange={(e) => setSettings("theme", e.currentTarget.value as "dark" | "light")}>
+            <select
+              value={settings.theme}
+              onChange={(e) => setSettings("theme", e.currentTarget.value as "dark" | "light")}
+            >
               <option value="dark">dark</option>
               <option value="light">light</option>
             </select>
@@ -133,45 +88,21 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div class="card">
-        <h3>Cube orientation</h3>
-        <p class="muted">
-          Rotations applied from white-top / green-front to how you hold the cube, e.g. <code>x y</code>.
-          Letters and buffers are interpreted in this frame.
-        </p>
-        <input
-          class="mono"
-          style={{ width: "160px" }}
-          placeholder="e.g. x y"
-          value={settings.orientation}
-          onInput={(e) => setSettings("orientation", e.currentTarget.value)}
-        />
-        <Show when={!orientationValid()}>
-          <span class="bad"> only x / y / z rotations are allowed</span>
-        </Show>
-      </div>
-
-      <div class="card">
-        <h3>Letter scheme</h3>
+      <details class="card">
+        <summary>
+          <h3 style={{ display: "inline" }}>Advanced — letter scheme</h3>
+        </summary>
         <p class="muted">Speffz by default. Each sticker can carry your own letter (max 2 chars).</p>
         <h4>Corners</h4>
         <SchemeGrid kind="corners" />
         <h4>Edges</h4>
         <SchemeGrid kind="edges" />
         <button onClick={() => resetLetterScheme()}>Reset to Speffz</button>
-      </div>
-
-      <div class="card">
-        <h3>Buffer priority</h3>
-        <p class="muted">
-          Used to label detected cycles: the first buffer in this order whose position is part of a cycle
-          names the case. Buffers are stickers (RDF is the R sticker of the DFR corner).
+        <p class="muted small-note">
+          Derived orientation (from your color scheme):{" "}
+          <span class="mono">{settings.orientation || "(none — white top, green front)"}</span>
         </p>
-        <h4>Edges</h4>
-        <BufferList kind="edges" />
-        <h4>Corners</h4>
-        <BufferList kind="corners" />
-      </div>
+      </details>
     </div>
   );
 }

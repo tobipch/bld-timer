@@ -1,5 +1,6 @@
 import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import { ConnectBar } from "~/components/ConnectBar";
+import { Onboarding } from "~/components/Onboarding";
 import { DevPanel } from "~/components/DevPanel";
 import { ReconstructionView } from "~/components/ReconstructionView";
 import { ScrambleView } from "~/components/ScrambleView";
@@ -12,6 +13,14 @@ import { settings } from "~/state/settings";
 import { useApp } from "~/state/app";
 
 export default function TimerPage() {
+  return (
+    <Show when={settings.profile.onboarded} fallback={<Onboarding />}>
+      <TimerInner />
+    </Show>
+  );
+}
+
+function TimerInner() {
   const app = useApp();
   const [armed, setArmed] = createSignal(false);
   let holdTimer: ReturnType<typeof setTimeout> | null = null;
@@ -84,6 +93,7 @@ export default function TimerPage() {
                   rec={s().reconstruction}
                   scramble={s().scramble}
                   moves={s().moves}
+                  compact
                   title={`${s().result === "dnf" ? "DNF" : formatMs(s().totalMs)} — memo ${formatMs(
                     s().memoMs,
                   )} · exec ${formatMs(s().execMs)}`}

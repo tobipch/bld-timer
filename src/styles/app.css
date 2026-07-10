@@ -1051,3 +1051,149 @@ select:focus {
   border: none;
   padding: 0;
 }
+
+/* ---- onboarding & profile ---- */
+
+.onboarding {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.onboarding-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.profile-editor section {
+  border-top: 1px solid var(--border);
+  padding: 12px 0;
+}
+
+.profile-editor section:first-child {
+  border-top: none;
+}
+
+.profile-editor h4 {
+  margin: 8px 0 6px;
+}
+
+.method-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.method-desc {
+  flex-basis: 100%;
+  font-size: 13px;
+}
+
+.small-note {
+  font-size: 13px;
+}
+
+.toggle-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.color-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 4px 0;
+}
+
+.color-row > .muted {
+  width: 46px;
+}
+
+.color-picker {
+  display: flex;
+  gap: 6px;
+}
+
+.color-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 2px solid var(--border);
+  padding: 0;
+}
+
+.color-swatch.selected {
+  border-color: var(--text);
+  outline: 2px solid var(--accent);
+}
+
+.buffer-cols {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.buffer-order {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.buffer-order li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-inset);
+  cursor: grab;
+}
+
+.buffer-order li.dragging {
+  opacity: 0.5;
+}
+
+.buffer-order li.drop-target {
+  border-color: var(--accent);
+}
+
+.buffer-name {
+  font-weight: 700;
+  flex: 1;
+}
+
+.buffer-std {
+  font-size: 11px;
+}
+
+.buffer-arrows {
+  display: flex;
+  gap: 2px;
+}
+
+.buffer-arrows button {
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+/* ---- compact review ---- */
+
+.recon-problems {
+  margin-top: 10px;
+}
+
+.recon-solution {
+  margin-top: 10px;
+}
+
+.recon-solution > summary {
+  cursor: pointer;
+  font-size: 13px;
+}

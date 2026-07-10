@@ -116,7 +116,7 @@ function StepItem(props: {
         <div class="step-suspicion warn">
           ⚠{" "}
           {suspicious()
-            ? "solved no piece"
+            ? (props.step.progress!.reason ?? "solved no piece")
             : `solved only ${props.step.progress!.newlySolved} piece — a full pair was available`}
           <Show when={props.step.progress!.suggestion}>
             {" — "}
@@ -243,6 +243,8 @@ export function ReconstructionView(props: {
   scramble?: string;
   moves?: { m: string; t: number }[];
   feedback?: { confirmed: number[]; onToggleFinding: (idx: number) => void };
+  /** errors-first view: full solution folded away (default on the timer page) */
+  compact?: boolean;
 }) {
   const maps = createMemo(() => makeOrientationMaps(settings.orientation));
   const [replay, setReplay] = createSignal<ReplayTarget | null>(null);
@@ -326,6 +328,7 @@ export function ReconstructionView(props: {
   });
 
   const algCount = createMemo(() => props.rec.steps.filter((s) => s.kind === "case").length);
+  const compact = () => props.compact ?? false;
 
   /**
    * Group the solve into its natural phases so the list reads like the
@@ -419,6 +422,19 @@ export function ReconstructionView(props: {
     );
   });
 
+  /** off-plan, flagged or broken steps, surfaced in the compact view */
+  const problemRows = createMemo(() =>
+    props.rec.steps
+      .map((step, idx) => ({ type: "step" as const, step, idx }))
+      .filter(
+        (r) =>
+          r.step.progress?.suspicious ||
+          r.step.progress?.suboptimal ||
+          wrongIdxs().has(r.idx) ||
+          brokenStepIdx() === r.idx,
+      ),
+  );
+
   return (
     <div class="recon card">
       <Show when={props.title}>
@@ -492,43 +508,69 @@ export function ReconstructionView(props: {
           </Show>
         </div>
       </Show>
-      <Show when={props.rec.steps.length > 0} fallback={<span class="muted">No moves were made.</span>}>
-        <For each={groups()}>
-          {(g) => (
-            <section class="recon-group">
-              <div class="recon-group-head">
-                <span class="recon-group-name">{g.name}</span>
-                <span class="muted">
-                  {g.cases} case{g.cases === 1 ? "" : "s"} · {formatMs(g.ms)}
-                </span>
-              </div>
-              <ol class="recon-steps">
-                <For each={g.rows}>
-                  {(row) =>
-                    row.type === "step" ? (
-                      <StepItem
-                        step={row.step}
-                        flagged={wrongIdxs().has(row.idx)}
-                        broken={brokenStepIdx() === row.idx}
-                        onReplay={
-                          canReplay()
-                            ? () => replaySpan(row.step.startIdx, row.step.endIdx + 1)
-                            : undefined
-                        }
-                      />
-                    ) : (
-                      <GhostCaseItem
-                        row={row}
-                        maps={maps()}
-                        onReplay={canReplay() ? () => replaySpan(row.moveIdx) : undefined}
-                      />
-                    )
+      <Show when={compact() && problemRows().length > 0}>
+        <div class="recon-problems">
+          <div class="recon-group-head">
+            <span class="recon-group-name bad">Problems</span>
+          </div>
+          <ol class="recon-steps">
+            <For each={problemRows()}>
+              {(row) => (
+                <StepItem
+                  step={row.step}
+                  flagged={wrongIdxs().has(row.idx)}
+                  broken={brokenStepIdx() === row.idx}
+                  onReplay={
+                    canReplay() ? () => replaySpan(row.step.startIdx, row.step.endIdx + 1) : undefined
                   }
-                </For>
-              </ol>
-            </section>
-          )}
-        </For>
+                />
+              )}
+            </For>
+          </ol>
+        </div>
+      </Show>
+      <Show when={props.rec.steps.length > 0} fallback={<span class="muted">No moves were made.</span>}>
+        <details class="recon-solution" open={!compact()}>
+          <summary class="muted">
+            {compact() ? "Show full solution" : "Solution"} · {algCount()} algs
+          </summary>
+          <For each={groups()}>
+            {(g) => (
+              <section class="recon-group">
+                <div class="recon-group-head">
+                  <span class="recon-group-name">{g.name}</span>
+                  <span class="muted">
+                    {g.cases} case{g.cases === 1 ? "" : "s"} · {formatMs(g.ms)}
+                  </span>
+                </div>
+                <ol class="recon-steps">
+                  <For each={g.rows}>
+                    {(row) =>
+                      row.type === "step" ? (
+                        <StepItem
+                          step={row.step}
+                          flagged={wrongIdxs().has(row.idx)}
+                          broken={brokenStepIdx() === row.idx}
+                          onReplay={
+                            canReplay()
+                              ? () => replaySpan(row.step.startIdx, row.step.endIdx + 1)
+                              : undefined
+                          }
+                        />
+                      ) : (
+                        <GhostCaseItem
+                          row={row}
+                          maps={maps()}
+                          onReplay={canReplay() ? () => replaySpan(row.moveIdx) : undefined}
+                        />
+                      )
+                    }
+                  </For>
+                </ol>
+              </section>
+            )}
+          </For>
+        </details>
       </Show>
     </div>
   );

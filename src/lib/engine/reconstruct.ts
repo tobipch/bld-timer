@@ -13,6 +13,7 @@ import {
 } from "../cube/state";
 import { invertOuterMoves } from "../cube/alg";
 import { classifyDiff, unsolvedSummary, type BufferRefs, type Primitive } from "./classify";
+import { judgeStep, type JudgeContext } from "./judge";
 import { continuationFor, type Continuation } from "./suggest";
 
 export interface TimedMove {
@@ -26,10 +27,12 @@ export interface StepProgress {
   newlySolved: number;
   /** previously solved pieces (other than the buffer) this step displaced */
   broke: number;
-  /** a comm that solves nothing is almost surely a mistrace */
+  /** the step is not a valid action of the user's method at this state */
   suspicious: boolean;
   /** a full pair was available but this comm solved fewer than 2 pieces */
   suboptimal?: boolean;
+  /** why the judge rejected it, when profile-judged */
+  reason?: string;
   /** for flagged comms: what the state actually called for */
   suggestion?: Continuation;
 }
@@ -209,6 +212,7 @@ export function reconstructSolve(
   buffers: BufferRefs,
   gapMs = DEFAULT_GAP_MS,
   diagnose = true,
+  judgeCtx?: JudgeContext,
 ): Reconstruction {
   const n = timedMoves.length;
   const states: CubeState[] = new Array(n + 1);
@@ -380,7 +384,8 @@ export function reconstructSolve(
 
   markPseudoSwaps(steps, states);
 
-  annotateProgress(steps, states);
+  if (judgeCtx) annotateJudged(steps, states, judgeCtx);
+  else annotateProgress(steps, states);
 
   const finalState = states[n];
   const solved = isSolved(finalState);
@@ -447,6 +452,42 @@ function annotateProgress(steps: ReconstructionStep[], states: CubeState[]) {
     step.progress = { newlySolved, broke, suspicious, suboptimal };
     if (suspicious || suboptimal) {
       step.progress.suggestion = cont;
+    }
+  }
+}
+
+/**
+ * Profile-judged annotation: every case is checked against the valid actions
+ * of the user's declared method (see judge.ts), on the counterfactual
+ * timeline that skips unexplained blocks. Replaces progress heuristics.
+ */
+function annotateJudged(steps: ReconstructionStep[], states: CubeState[], ctx: JudgeContext) {
+  let cf = states[0];
+  for (const step of steps) {
+    if (step.kind === "unknown") continue; // the block never happened
+    const before = cf;
+    cf = composeTransforms(cf, stepEffect(step, states));
+    const p = step.primitive;
+    if (!p || p.type === "noop") continue;
+    const verdict = judgeStep(before, p, ctx);
+    if (p.type === "cornerComm" || p.type === "edgeComm") {
+      const { newlySolved, broke } = commProgress(before, cf, p);
+      step.progress = {
+        newlySolved,
+        broke,
+        suspicious: !verdict.ok,
+        suboptimal: false,
+        ...(verdict.reason ? { reason: verdict.reason } : {}),
+        ...(verdict.expected ? { suggestion: verdict.expected } : {}),
+      };
+    } else if (!verdict.ok) {
+      step.progress = {
+        newlySolved: 0,
+        broke: 0,
+        suspicious: true,
+        ...(verdict.reason ? { reason: verdict.reason } : {}),
+        ...(verdict.expected ? { suggestion: verdict.expected } : {}),
+      };
     }
   }
 }
