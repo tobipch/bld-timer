@@ -5,8 +5,19 @@ import { ReconstructionView } from "~/components/ReconstructionView";
 import { SolveNotes } from "~/components/SolveNotes";
 import { SolvePlayer } from "~/components/SolvePlayer";
 import { categoryOf } from "~/lib/dnf";
+import { buildReplay, tpsAt } from "~/lib/replay";
 import { formatMs } from "~/lib/stats";
+import { settings } from "~/state/settings";
 import { useApp } from "~/state/app";
+
+function Metric(props: { label: string; value: string; hint?: string }) {
+  return (
+    <div class="metric" title={props.hint}>
+      <dt>{props.label}</dt>
+      <dd class="mono">{props.value}</dd>
+    </div>
+  );
+}
 
 export default function SolvePage() {
   const app = useApp();
@@ -15,6 +26,8 @@ export default function SolvePage() {
   const [showEngine, setShowEngine] = createSignal(false);
 
   const solve = createMemo(() => app.solves().find((s) => s.id === params.id) ?? null);
+  const model = createMemo(() => buildReplay(solve() ?? { scramble: "", moves: [] }, settings.orientation));
+  const tps = createMemo(() => tpsAt(model(), model().moves.length, solve()?.execMs ?? 0));
   const number = createMemo(() => {
     const s = solve();
     if (!s) return null;
@@ -41,7 +54,7 @@ export default function SolvePage() {
         {(s) => (
           <>
             <div class="card solve-head">
-              <div class="solve-head-left">
+              <div class="solve-head-top">
                 <A href="/" class="back-link">
                   ← Timer
                 </A>
@@ -51,29 +64,48 @@ export default function SolvePage() {
                     {s().result === "dnf" ? "DNF" : formatMs(s().totalMs)}
                   </span>
                 </h2>
-                <span class="muted mono">
-                  {formatMs(s().memoMs)} memo · {formatMs(s().execMs)} exec · {s().moves.length} moves
-                </span>
+                <div class="solve-head-right">
+                  <button
+                    onClick={() => void app.setSolveResult(s().id, s().result === "ok" ? "dnf" : "ok")}
+                    title="The cube decides this automatically — override it if the cube was out of sync"
+                  >
+                    mark as {s().result === "ok" ? "DNF" : "OK"}
+                  </button>
+                  <button
+                    class="danger"
+                    onClick={() => {
+                      if (confirm("Delete this solve?")) {
+                        void app.deleteSolve(s().id);
+                        navigate("/");
+                      }
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-              <div class="solve-head-right">
-                <button
-                  onClick={() => void app.setSolveResult(s().id, s().result === "ok" ? "dnf" : "ok")}
-                  title="The cube decides this automatically — override it if the cube was out of sync"
-                >
-                  mark as {s().result === "ok" ? "DNF" : "OK"}
-                </button>
-                <button
-                  class="danger"
-                  onClick={() => {
-                    if (confirm("Delete this solve?")) {
-                      void app.deleteSolve(s().id);
-                      navigate("/");
-                    }
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
+
+              <dl class="metric-strip">
+                <Metric label="memo" value={formatMs(s().memoMs)} />
+                <Metric label="exec" value={formatMs(s().execMs)} />
+                <Metric
+                  label="thinking"
+                  value={formatMs(model().pauseTotalMs)}
+                  hint="time standing still between algs during the execution"
+                />
+                <Metric label="moves" value={`${model().moves.length}`} hint="R2 counts as one move" />
+                <Metric
+                  label="algs"
+                  value={`${model().bursts.length}`}
+                  hint="runs of moves separated by a pause"
+                />
+                <Metric
+                  label="tps"
+                  value={tps() === null ? "—" : tps()!.toFixed(2)}
+                  hint="moves per second over the whole execution"
+                />
+              </dl>
+
               <div class="solve-head-scramble">
                 <span class="muted">scramble</span>
                 <code class="mono">{s().scramble}</code>

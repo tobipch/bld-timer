@@ -227,14 +227,24 @@ stream:
 - **Transport**: start / prev / play-pause / next / end, speed 0.25×–4×, and a *real time*
   toggle that plays back with the exact inter-move timing recorded by the cube.
 - **Keyboard**: `←` `→` step, `↑` `↓` jump between pauses, `Home` / `End`, `space` plays.
-- **Timeline**: the solved-piece count (0–20) as a curve, with hesitations marked. A drop in
-  the curve, or a long hesitation, is where a solve usually went wrong. Click to seek.
+- **Timeline**: turning speed over the solve, with hesitations marked. A dip in the curve or
+  a long hesitation is where a solve usually went wrong. Click to seek.
 - **Groups**: moves are split into bursts wherever the hands paused — a method-agnostic
-  stand-in for "one alg". Each burst shows its duration, the pause before it and how many
-  pieces it solved (+2 is a healthy comm; 0 or negative is worth a look).
+  stand-in for "one alg". Each burst shows the pause before it, its duration and its TPS.
 - **At this point**: which pieces are still unsolved, by letter in the user's scheme, plus the
-  exact alg that reproduces this state from a solved cube (copyable — put the cube back
-  where it broke and try again).
+  exact alg that reproduces this state from a solved cube. That alg is not the raw
+  "scramble + 90 moves played" but a fresh scramble of the same length as a WCA one (19–21
+  moves, from cubing.js's two-phase solver), computed per position and cached — copy it, put
+  the cube back where it broke and try again.
+
+Quarter turns are grouped the way a cuber writes them: the cube reports `R2` as two `R`
+turns, and the player shows one `R2` — unless the hands paused in between, which stays
+visible as two steps. A group that cancels out (`R R'`) is shown as played and changes
+nothing.
+
+Metrics on a solve: memo, execution, **thinking** (time standing still between algs),
+moves, **algs** (number of bursts) and **TPS**. Solved-piece counts are deliberately not
+among them — knowing *which* pieces are unsolved helps, counting them does not.
 
 ### DNF categories
 

@@ -47,7 +47,8 @@ never stops automatically). Solved at that moment = success, otherwise DNF — t
 with `1`–`9`, or open the replay to find it.
 
 In the replay: `←` `→` step, `↑` `↓` jump between pauses, `space` plays, and the timeline curve is
-the number of solved pieces over the solve.
+your turning speed over the solve. Every position also gives you a scramble-length alg that
+reproduces exactly that state, so you can put the cube back where it broke.
 
 ## Deployment (Vercel + Neon)
 

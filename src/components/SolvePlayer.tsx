@@ -1,7 +1,16 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { ReplayCube } from "./ReplayCube";
 import { describePrimitive, letterFor, makeOrientationMaps } from "~/lib/engine/present";
-import { buildReplay, displayPrefix, solvedPieceCount, unsolvedSlots } from "~/lib/replay";
+import {
+  buildReplay,
+  corePrefix,
+  displayPrefix,
+  elapsedExecMs,
+  toDisplayAlg,
+  tpsAt,
+  unsolvedSlots,
+} from "~/lib/replay";
+import { shortScrambleFor } from "~/lib/solver";
 import { formatMs } from "~/lib/stats";
 import type { SolveRecord } from "~/lib/storage/types";
 import { settings } from "~/state/settings";
@@ -9,8 +18,7 @@ import { settings } from "~/state/settings";
 /**
  * Move-by-move replay of a solve — the tool for finding out where it went
  * wrong. Everything shown is measured, not guessed: the state after every
- * move, how long each move took, where the hands hesitated, and how many
- * pieces were solved at that moment.
+ * move, how long each move took and where the hands hesitated.
  */
 export function SolvePlayer(props: { solve: SolveRecord }) {
   const model = createMemo(() => buildReplay(props.solve, settings.orientation));
@@ -122,8 +130,6 @@ export function SolvePlayer(props: { solve: SolveRecord }) {
 
   /* ---- derived views ---- */
 
-  const solvedNow = createMemo(() => solvedPieceCount(model().states[idx()]));
-
   const unsolved = createMemo(() => {
     const u = unsolvedSlots(model().states[idx()]);
     const scheme = settings.letterScheme;
@@ -150,11 +156,18 @@ export function SolvePlayer(props: { solve: SolveRecord }) {
       .map((g) => g.label)
       .join(" · ");
 
+  /** turning speed over the solve, scaled to the fastest patch of it */
+  const peakTps = createMemo(() => Math.max(1, ...model().moves.map((m) => m.tps ?? 0)));
+
   const curve = createMemo(() => {
     const m = model();
     const w = Math.max(1, m.moves.length);
-    const pts = [`0,${100 - (solvedPieceCount(m.states[0]) / 20) * 100}`];
-    m.moves.forEach((mv, i) => pts.push(`${((i + 1) / w) * 1000},${100 - (mv.solvedAfter / 20) * 100}`));
+    const peak = peakTps();
+    const pts: string[] = [];
+    m.moves.forEach((mv, i) => {
+      if (mv.tps === null) return;
+      pts.push(`${((i + 1) / w) * 1000},${100 - (mv.tps / peak) * 100}`);
+    });
     return pts.join(" ");
   });
 
@@ -167,8 +180,67 @@ export function SolvePlayer(props: { solve: SolveRecord }) {
     seek(Math.round(f * count()), { animate: false });
   };
 
-  const setupAlgHere = createMemo(() => displayPrefix(model(), idx()));
+  /* ---- "put the cube back here" ---- */
+
+  /*
+   * Scramble + everything played so far grows past a hundred moves and is
+   * useless to type in. The solver turns any position into a scramble-length
+   * sequence reaching exactly the same state; results are cached per position
+   * and computed shortly after the position settles, so scrubbing does not
+   * queue up work. Below this the raw list is already scramble-length itself.
+   */
+  const RAW_LIMIT = 22;
+
+  const longAlgHere = createMemo(() => displayPrefix(model(), idx()));
+  const rawCount = () => corePrefix(model(), idx()).length;
+
+  const [shortAlgs, setShortAlgs] = createSignal<Record<number, string>>({});
+  const [busyIdx, setBusyIdx] = createSignal<number | null>(null);
+  const [solverFailed, setSolverFailed] = createSignal(false);
   const [copied, setCopied] = createSignal(false);
+  const inFlight = new Set<number>();
+
+  const shortAlgHere = () => shortAlgs()[idx()];
+  const reachAlg = () => shortAlgHere() ?? longAlgHere();
+  const reachMoveCount = () => reachAlg().split(/\s+/).filter(Boolean).length;
+  const shortening = () => busyIdx() === idx();
+
+  // a new solve invalidates every cached scramble
+  createEffect(
+    on(
+      () => props.solve.id,
+      () => {
+        setShortAlgs({});
+        inFlight.clear();
+      },
+      { defer: true },
+    ),
+  );
+
+  const shorten = async (i: number) => {
+    if (shortAlgs()[i] !== undefined || inFlight.has(i)) return;
+    inFlight.add(i);
+    if (i === idx()) setBusyIdx(i);
+    try {
+      const raw = corePrefix(model(), i);
+      const short = await shortScrambleFor(raw);
+      if (!short) setSolverFailed(true);
+      else if (short.length < raw.length)
+        setShortAlgs((m) => ({ ...m, [i]: toDisplayAlg(model(), short, settings.orientation) }));
+    } finally {
+      inFlight.delete(i);
+      if (busyIdx() === i) setBusyIdx(null);
+    }
+  };
+
+  createEffect(() => {
+    const i = idx();
+    // never during playback: the position changes many times a second
+    if (playing() || solverFailed() || shortAlgs()[i] !== undefined) return;
+    if (rawCount() <= RAW_LIMIT) return;
+    const id = setTimeout(() => void shorten(i), 250);
+    onCleanup(() => clearTimeout(id));
+  });
 
   // keep the current burst visible while playing
   let listEl!: HTMLDivElement;
@@ -177,7 +249,9 @@ export function SolvePlayer(props: { solve: SolveRecord }) {
     active?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   });
 
-  const elapsed = () => (idx() === 0 ? 0 : model().moves[idx() - 1].t);
+  // on the execution clock, so the readout runs from 0 to the solve's exec time
+  const elapsed = () => elapsedExecMs(model(), idx(), props.solve.execMs);
+  const tps = createMemo(() => tpsAt(model(), idx(), props.solve.execMs));
 
   return (
     <div class="player">
@@ -194,9 +268,12 @@ export function SolvePlayer(props: { solve: SolveRecord }) {
             {idx()}<span class="muted">/{count()}</span>
           </span>
           <span class="mono muted">{formatMs(elapsed())}</span>
-          <span class="player-solved" title="pieces solved at this point">
-            <span class="mono">{solvedNow()}</span>
-            <span class="muted">/20 solved</span>
+          <span
+            class="player-tps"
+            title="Turns per second up to this point — at the end, the TPS of the whole solve"
+          >
+            <span class="mono">{tps() === null ? "—" : tps()!.toFixed(2)}</span>
+            <span class="muted">tps</span>
           </span>
         </div>
 
@@ -258,7 +335,9 @@ export function SolvePlayer(props: { solve: SolveRecord }) {
             />
           </svg>
           <div class="tl-legend muted">
-            <span><i class="sw-curve" /> solved pieces</span>
+            <span>
+              <i class="sw-curve" /> turning speed (peak {peakTps().toFixed(1)} tps)
+            </span>
             <span><i class="sw-pause" /> hesitation ≥ {formatMs(model().pauseThresholdMs)}</span>
           </div>
         </div>
@@ -288,17 +367,39 @@ export function SolvePlayer(props: { solve: SolveRecord }) {
             </div>
           </Show>
           <div class="reach-row">
-            <span class="muted">Reach this exact state from a solved cube:</span>
-            <code class="mono reach-alg">{setupAlgHere() || "(solved)"}</code>
-            <button
-              onClick={() => {
-                void navigator.clipboard?.writeText(setupAlgHere());
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              }}
-            >
-              {copied() ? "copied ✓" : "copy"}
-            </button>
+            <span class="muted">
+              Reach this exact state from a solved cube{" "}
+              <span class="mono">({reachMoveCount()} moves)</span>
+            </span>
+            <code class="mono reach-alg" classList={{ short: !!shortAlgHere() }}>
+              {reachAlg() || "(solved)"}
+            </code>
+            <div class="reach-actions">
+              <Show when={shortening()}>
+                <span class="muted reach-busy">shortening…</span>
+              </Show>
+              <Show when={solverFailed() && !shortAlgHere() && rawCount() > RAW_LIMIT}>
+                <button
+                  onClick={() => {
+                    setSolverFailed(false);
+                    void shorten(idx());
+                  }}
+                  title="Find a scramble-length sequence that produces this state"
+                >
+                  shorten
+                </button>
+              </Show>
+              <button
+                disabled={!reachAlg()}
+                onClick={() => {
+                  void navigator.clipboard?.writeText(reachAlg());
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                }}
+              >
+                {copied() ? "copied ✓" : "copy"}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -320,12 +421,8 @@ export function SolvePlayer(props: { solve: SolveRecord }) {
                   </span>
                 </Show>
                 <span class="muted mono">{formatMs(b.durationMs)}</span>
-                <span
-                  class="burst-delta"
-                  classList={{ good: b.delta > 0, bad: b.delta < 0, muted: b.delta === 0 }}
-                  title="pieces solved by this group"
-                >
-                  {b.delta > 0 ? `+${b.delta}` : b.delta}
+                <span class="burst-tps mono" title="turning speed inside this group">
+                  {b.tps === null ? "" : `${b.tps.toFixed(1)} tps`}
                 </span>
                 <Show when={guessFor(b.from, b.to)}>
                   {(g) => (
