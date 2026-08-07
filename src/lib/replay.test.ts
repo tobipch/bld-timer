@@ -108,8 +108,39 @@ describe("buildReplay", () => {
   it("shows a cancelling fidget as played and lets it change nothing", () => {
     const model = buildReplay(record("U", "D R R' D'"), "");
     expect(model.moves.map((m) => m.display)).toEqual(["D", "R R'", "D'"]);
-    expect(model.moves[1].move).toBeNull();
+    expect(model.moves[1].net).toEqual([]);
     expect(model.states[1]).toEqual(model.states[2]);
+  });
+
+  it("reads opposite faces turning against each other as a slice", () => {
+    // a cube without a gyro reports M as exactly this pair
+    const model = buildReplay(record("U", "R L' F U D' B R' L"), "");
+    expect(model.moves.map((m) => m.display)).toEqual(["M", "F", "E", "B", "M'"]);
+    // the state is the same either way — the two turns are still applied
+    expect(model.moves[0].net.map(outerMoveToString)).toEqual(["R", "L'"]);
+  });
+
+  it("names the slice as the user sees it", () => {
+    // held upside down, the same middle-layer turn reads the other way
+    expect(buildReplay(record("U", "R L'"), "z2").moves[0].display).toBe("M'");
+    expect(buildReplay(record("U", "U D'"), "z2").moves[0].display).toBe("E'");
+    expect(buildReplay(record("U", "F' B"), "z2").moves[0].display).toBe("S");
+  });
+
+  it("joins half slices and reads them as one", () => {
+    // reported as two halves of the middle layer, either interleaved or not
+    expect(buildReplay(record("U", "R R L' L'"), "").moves.map((m) => m.display)).toEqual(["M2"]);
+    expect(buildReplay(record("U", "R L' R L'"), "").moves.map((m) => m.display)).toEqual(["M2"]);
+  });
+
+  it("leaves same-direction opposite faces alone", () => {
+    // R L is not a slice: both layers turn the same way
+    expect(buildReplay(record("U", "R L"), "").moves.map((m) => m.display)).toEqual(["R", "L"]);
+  });
+
+  it("does not join a slice across a pause", () => {
+    const model = buildReplay(record("U", "F U R L' D B", [0, 60, 60, 900, 60, 60]), "");
+    expect(model.moves.map((m) => m.display)).toEqual(["F", "U", "R", "L'", "D", "B"]);
   });
 
   it("keeps a solve usable when the scramble cannot be parsed", () => {

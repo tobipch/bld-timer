@@ -243,15 +243,25 @@ stream:
 - **Groups**: moves are split into bursts wherever the hands paused — a method-agnostic
   stand-in for "one alg". Each burst shows the pause before it, its duration and its TPS.
 - **At this point**: which pieces are still unsolved, by letter in the user's scheme, plus the
-  exact alg that reproduces this state from a solved cube. That alg is not the raw
+  exact alg that reproduces this state from a solved cube. The same applies wherever the app
+  offers to put the cube back somewhere: always *from solved*, never "from where your cube is
+  now" — after a DNF the timer has already made you solve it. That alg is not the raw
   "scramble + 90 moves played" but a fresh scramble of the same length as a WCA one (19–21
   moves, from cubing.js's two-phase solver), computed per position and cached — copy it, put
   the cube back where it broke and try again.
 
-Quarter turns are grouped the way a cuber writes them: the cube reports `R2` as two `R`
-turns, and the player shows one `R2` — unless the hands paused in between, which stays
-visible as two steps. A group that cancels out (`R R'`) is shown as played and changes
-nothing.
+Quarter turns are grouped the way a cuber writes them, in three passes that never join turns
+separated by a pause (a regrip stays visible as two steps):
+
+1. **same face** — the cube reports `R2` as two `R` turns, the player shows one `R2`;
+2. **slices** — a cube without a gyro reports `M` as `R` plus `L'`; the two are the same
+   event down to the millisecond, and in a blindfolded solve it is virtually always the
+   slice, which is what commutators are written in. Opposite faces turning *against* each
+   other therefore read as `M` / `E` / `S`, named in the frame the user holds the cube in
+   (held upside down, the same middle-layer turn reads as `M'`);
+3. **same slice** — for cubes that report `M2` as two separate halves.
+
+A group that cancels out (`R R'`) is shown as played and changes nothing.
 
 Metrics on a solve: memo, execution, **thinking** (time standing still between algs),
 moves, **algs** (number of bursts) and **TPS**. Solved-piece counts are deliberately not

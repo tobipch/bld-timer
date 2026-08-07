@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
-import { invertOuterMoves, outerMoveFromString, outerMoveToString } from "~/lib/cube/alg";
+import { algToOuterMoves, invertOuterMoves, outerMoveFromString, outerMoveToString } from "~/lib/cube/alg";
 import { humanizeMoves, humanizeMovesVerbatim } from "~/lib/cube/humanize";
 import type { OuterMove } from "~/lib/cube/state";
 import {
@@ -42,6 +42,10 @@ function StepItem(props: {
   ghost?: boolean;
   flagged?: boolean;
   broken?: boolean;
+  /** an earlier step in this phase already went wrong: this is its consequence */
+  followUp?: boolean;
+  /** this is the first thing that went wrong, and more followed from it */
+  hasFollowUps?: boolean;
   onReplay?: () => void;
 }) {
   if (props.step.kind === "unknown") {
@@ -82,8 +86,10 @@ function StepItem(props: {
   }
   const maps = makeOrientationMaps(settings.orientation);
   const d = describePrimitive(props.step.primitive!, settings.letterScheme, maps);
-  const suspicious = () => props.step.progress?.suspicious && !props.ghost;
-  const suboptimal = () => props.step.progress?.suboptimal && !props.ghost;
+  // once a phase is off plan, every later warning in it is a consequence —
+  // reporting them again buries the one mistake that actually happened
+  const suspicious = () => props.step.progress?.suspicious && !props.ghost && !props.followUp;
+  const suboptimal = () => props.step.progress?.suboptimal && !props.ghost && !props.followUp;
   const fullMoves = () =>
     props.step.setupMoves
       ? [...props.step.setupMoves, ...props.step.moves, ...invertOuterMoves(props.step.setupMoves)]
@@ -121,6 +127,9 @@ function StepItem(props: {
           <Show when={props.step.progress!.suggestion}>
             {" — "}
             {describeContinuation(props.step.progress!.suggestion!, settings.letterScheme, maps)}
+          </Show>
+          <Show when={props.hasFollowUps}>
+            <span class="muted"> · everything after this in the phase follows from it</span>
           </Show>
         </div>
       </Show>
@@ -371,7 +380,9 @@ export function ReconstructionView(props: {
         if (row.step.kind === "case") current.cases++;
       }
     }
-    return out;
+    // a phase consisting only of ghosts never happened — the finding above
+    // already says what is missing, a "Finish · 0 cases" header only adds noise
+    return out.filter((g) => g.rows.some((r) => r.type === "step"));
   });
 
   /** move index of the primary error, for "bring your cube back there" */
@@ -399,6 +410,15 @@ export function ReconstructionView(props: {
       : null;
   });
 
+  /*
+   * Getting the cube back to the moment before the mistake. It used to be
+   * computed as a path from the solve's end state, which is wrong twice over:
+   * after a DNF the timer makes you solve the cube before the next scramble,
+   * so by the time this is read the cube is solved — and when the mistake is
+   * a case that was never solved at all, the "path" from the end is empty and
+   * the answer came out as "already there". Scrambling into the state from a
+   * solved cube is true regardless of where the cube has been since.
+   */
   const [backPath, setBackPath] = createSignal<string | null>(null);
   const [backBusy, setBackBusy] = createSignal(false);
   const computeBackPath = async () => {
@@ -406,13 +426,46 @@ export function ReconstructionView(props: {
     if (idx === null) return;
     setBackBusy(true);
     try {
-      const { movesBackTo } = await import("~/lib/solver");
-      const moves = await movesBackTo(rawMoves().slice(0, idx), rawMoves());
-      setBackPath(moves.length === 0 ? "(already there)" : userAlg(moves));
+      const { shortScrambleFor } = await import("~/lib/solver");
+      let scrambleMoves: OuterMove[] = [];
+      try {
+        scrambleMoves = algToOuterMoves(props.scramble ?? "");
+      } catch {
+        scrambleMoves = [];
+      }
+      const target = [...scrambleMoves, ...rawMoves().slice(0, idx)];
+      const short = await shortScrambleFor(target);
+      const moves = short ?? target;
+      setBackPath(moves.length === 0 ? "(a solved cube — that is the state)" : userAlg(moves));
     } finally {
       setBackBusy(false);
     }
   };
+
+  /**
+   * Only the first thing that went wrong in a phase is reported. Once the
+   * cube is off plan every later comm is measured against a state that should
+   * never have existed, so its warning says nothing new.
+   */
+  const followUps = createMemo(() => {
+    const consequences = new Set<number>();
+    const leads = new Set<number>();
+    const seen = new Map<string, number>();
+    for (const g of groups()) {
+      for (const row of g.rows) {
+        if (row.type !== "step") continue;
+        const p = row.step.progress;
+        if (!p?.suspicious && !p?.suboptimal) continue;
+        const lead = seen.get(g.name);
+        if (lead === undefined) seen.set(g.name, row.idx);
+        else {
+          consequences.add(row.idx);
+          leads.add(lead);
+        }
+      }
+    }
+    return { consequences, leads };
+  });
 
   /** the unknown step where the solve falls apart, marked inline */
   const brokenStepIdx = createMemo(() => {
@@ -428,8 +481,8 @@ export function ReconstructionView(props: {
       .map((step, idx) => ({ type: "step" as const, step, idx }))
       .filter(
         (r) =>
-          r.step.progress?.suspicious ||
-          r.step.progress?.suboptimal ||
+          ((r.step.progress?.suspicious || r.step.progress?.suboptimal) &&
+            !followUps().consequences.has(r.idx)) ||
           wrongIdxs().has(r.idx) ||
           brokenStepIdx() === r.idx,
       ),
@@ -496,11 +549,11 @@ export function ReconstructionView(props: {
                 when={backPath()}
                 fallback={
                   <button disabled={backBusy()} onClick={() => void computeBackPath()}>
-                    {backBusy() ? "computing…" : "Moves to get back to just before the mistake"}
+                    {backBusy() ? "computing…" : "Scramble to get back to just before the mistake"}
                   </button>
                 }
               >
-                <span class="muted">From where your cube is now, apply: </span>
+                <span class="muted">From a solved cube, apply: </span>
                 <strong class="mono">{backPath()}</strong>
                 <span class="muted"> — then you're right before the mistake and can finish by hand.</span>
               </Show>
@@ -520,6 +573,8 @@ export function ReconstructionView(props: {
                   step={row.step}
                   flagged={wrongIdxs().has(row.idx)}
                   broken={brokenStepIdx() === row.idx}
+                  followUp={followUps().consequences.has(row.idx)}
+                  hasFollowUps={followUps().leads.has(row.idx)}
                   onReplay={
                     canReplay() ? () => replaySpan(row.step.startIdx, row.step.endIdx + 1) : undefined
                   }
@@ -551,6 +606,8 @@ export function ReconstructionView(props: {
                           step={row.step}
                           flagged={wrongIdxs().has(row.idx)}
                           broken={brokenStepIdx() === row.idx}
+                          followUp={followUps().consequences.has(row.idx)}
+                          hasFollowUps={followUps().leads.has(row.idx)}
                           onReplay={
                             canReplay()
                               ? () => replaySpan(row.step.startIdx, row.step.endIdx + 1)

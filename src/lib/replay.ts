@@ -78,10 +78,10 @@ export function unsolvedSlots(s: CubeState): { corners: number[]; edges: number[
 
 export interface ReplayMove {
   /**
-   * Net turn of this step in the cube's own frame, or null when the step
-   * cancels out (an `R R'` fidget).
+   * Net turns of this step in the cube's own frame: one for a face turn, two
+   * for a slice, none when the step cancels out (an `R R'` fidget).
    */
-  move: OuterMove | null;
+  net: OuterMove[];
   /** as the user saw it, i.e. rotated into their holding orientation */
   display: string;
   /** quarter turns the cube reported for this step (R2 arrives as two) */
@@ -159,20 +159,135 @@ interface RawTurn {
   gap: number;
 }
 
+/** A step of the replay before it is rendered. */
+interface Step {
+  raws: RawTurn[];
+  /** net outer turns in the cube's own frame; empty when the step cancels */
+  net: OuterMove[];
+  /** the slice this step is, when it is one */
+  slice: { axis: Axis; amount: number } | null;
+  gap: number;
+  t: number;
+}
+
+type Axis = "x" | "y" | "z";
+
+/**
+ * Which axis a face belongs to, and which of the pair the slice direction
+ * follows: `M` follows `R`, `E` follows `U`, `S` follows `B`.
+ */
+const AXIS_OF: Record<Face, { axis: Axis; leads: boolean }> = {
+  R: { axis: "x", leads: true },
+  L: { axis: "x", leads: false },
+  U: { axis: "y", leads: true },
+  D: { axis: "y", leads: false },
+  B: { axis: "z", leads: true },
+  F: { axis: "z", leads: false },
+};
+
+const SLICE_LETTER: Record<Axis, string> = { x: "M", y: "E", z: "S" };
+
+const suffix = (amount: number) => (amount === 2 ? "2" : amount === 3 ? "'" : "");
+
+/** A single face turn of this step, or null (slice, cancelled, unmerged). */
+function faceTurn(step: Step): OuterMove | null {
+  return !step.slice && step.net.length === 1 ? step.net[0] : null;
+}
+
 /**
  * Quarter turns as the cube reports them, grouped into the moves a cuber
- * would write down: `R R` is one `R2`, `R' R'` too. Only turns of the same
- * face executed without a pause in between are joined — a regrip in the
- * middle stays visible as two steps.
+ * would write down. Three passes, each only joining turns that were not
+ * separated by a pause — a regrip in the middle stays visible as two steps:
+ *
+ * 1. same face: `R R` is one `R2`, `R' R'` too;
+ * 2. opposite faces turning against each other: `R L'` is `M`. A cube without
+ *    a gyro reports a slice exactly like that pair — the two are the same
+ *    event down to the millisecond — and in a blindfolded solve it is
+ *    virtually always the slice, which is what commutators are written in;
+ * 3. same slice again, for cubes that report `M2` as two separate halves.
  */
-function groupTurns(raw: RawTurn[], pauseThresholdMs: number): RawTurn[][] {
+function buildSteps(raw: RawTurn[], pauseThresholdMs: number): Step[] {
+  const joins = (gap: number) => gap < pauseThresholdMs;
+
+  // 1. same face
   const groups: RawTurn[][] = [];
   for (const turn of raw) {
     const last = groups[groups.length - 1];
-    if (last && last[0].move.face === turn.move.face && turn.gap < pauseThresholdMs) last.push(turn);
+    if (last && last[0].move.face === turn.move.face && joins(turn.gap)) last.push(turn);
     else groups.push([turn]);
   }
-  return groups;
+  let steps: Step[] = groups.map((group) => {
+    const face = group[0].move.face;
+    const amount = group.reduce((a, g) => a + g.move.amount, 0) % 4;
+    return {
+      raws: group,
+      net: amount === 0 ? [] : [{ face, amount } as OuterMove],
+      slice: null,
+      gap: group[0].gap,
+      t: group[group.length - 1].t,
+    };
+  });
+
+  // 2. opposite faces -> slice
+  const paired: Step[] = [];
+  for (let i = 0; i < steps.length; i++) {
+    const a = faceTurn(steps[i]);
+    const b = i + 1 < steps.length ? faceTurn(steps[i + 1]) : null;
+    const sameAxis = a && b && AXIS_OF[a.face].axis === AXIS_OF[b.face].axis && a.face !== b.face;
+    // the two outer layers turn against each other exactly when the middle
+    // layer is what moved
+    if (sameAxis && (a.amount + b.amount) % 4 === 0 && joins(steps[i + 1].gap)) {
+      const lead = AXIS_OF[a.face].leads ? a : b!;
+      paired.push({
+        raws: [...steps[i].raws, ...steps[i + 1].raws],
+        net: [a, b!],
+        slice: { axis: AXIS_OF[a.face].axis, amount: lead.amount },
+        gap: steps[i].gap,
+        t: steps[i + 1].t,
+      });
+      i++;
+    } else {
+      paired.push(steps[i]);
+    }
+  }
+  steps = paired;
+
+  // 3. same slice
+  const merged: Step[] = [];
+  for (const step of steps) {
+    const last = merged[merged.length - 1];
+    if (last?.slice && step.slice && last.slice.axis === step.slice.axis && joins(step.gap)) {
+      const amount = (last.slice.amount + step.slice.amount) % 4;
+      last.raws = [...last.raws, ...step.raws];
+      last.net = amount === 0 ? [] : [...last.net, ...step.net];
+      last.slice = amount === 0 ? null : { axis: last.slice.axis, amount };
+      last.t = step.t;
+    } else {
+      merged.push({ ...step });
+    }
+  }
+  return merged;
+}
+
+/** The face whose direction each slice follows. */
+const SLICE_LEAD: Record<Axis, Face> = { x: "R", y: "U", z: "B" };
+
+/**
+ * A slice named as the user sees it: rotating the cube can move the slice to
+ * another axis and reverse the face it follows, so under z2 the same physical
+ * middle-layer turn reads as M'.
+ */
+function renderSlice(axis: Axis, amount: number, faceMap: FaceMap): string {
+  const seen = AXIS_OF[faceMap[SLICE_LEAD[axis]]];
+  return SLICE_LETTER[seen.axis] + suffix(seen.leads ? amount : (4 - amount) % 4);
+}
+
+/** How the step reads in the frame the user holds the cube in. */
+function renderStep(step: Step, faceMap: FaceMap): string {
+  if (step.slice) return renderSlice(step.slice.axis, step.slice.amount, faceMap);
+  if (step.net.length === 1) return outerMoveToString(mapMove(step.net[0], faceMap));
+  // cancels out: showing the turns as played says more than nothing
+  return step.raws.map((r) => outerMoveToString(mapMove(r.move, faceMap))).join(" ");
 }
 
 export function buildReplay(solve: Pick<SolveRecord, "scramble" | "moves">, orientation: string): ReplayModel {
@@ -207,24 +322,15 @@ export function buildReplay(solve: Pick<SolveRecord, "scramble" | "moves">, orie
   const pauseThresholdMs =
     intervals.length >= 4 ? Math.max(MIN_PAUSE_MS, Math.round(3 * median(intervals))) : MIN_PAUSE_MS;
 
-  const moves: ReplayMove[] = groupTurns(raw, pauseThresholdMs).map((group, i) => {
-    const face = group[0].move.face;
-    const amount = group.reduce((a, g) => a + g.move.amount, 0) % 4;
-    const move = amount === 0 ? null : ({ face, amount } as OuterMove);
-    const display = move
-      ? outerMoveToString(mapMove(move, faceMap))
-      : // cancels out: showing the turns as played says more than nothing
-        group.map((g) => outerMoveToString(mapMove(g.move, faceMap))).join(" ");
-    return {
-      move,
-      display,
-      quarterTurns: group.length,
-      t: group[group.length - 1].t,
-      gapMs: group[0].gap,
-      pause: i > 0 && group[0].gap >= pauseThresholdMs,
-      tps: null,
-    };
-  });
+  const moves: ReplayMove[] = buildSteps(raw, pauseThresholdMs).map((step, i) => ({
+    net: step.net,
+    display: renderStep(step, faceMap),
+    quarterTurns: step.raws.length,
+    t: step.t,
+    gapMs: step.gap,
+    pause: i > 0 && step.gap >= pauseThresholdMs,
+    tps: null,
+  }));
 
   // turning speed over a short window, so a slow patch stands out
   moves.forEach((m, i) => {
@@ -233,7 +339,7 @@ export function buildReplay(solve: Pick<SolveRecord, "scramble" | "moves">, orie
   });
 
   const states: CubeState[] = [start];
-  for (const m of moves) states.push(m.move ? applyMove(states[states.length - 1], m.move) : states[states.length - 1]);
+  for (const m of moves) states.push(m.net.reduce(applyMove, states[states.length - 1]));
 
   const bursts: Burst[] = [];
   for (let i = 0; i < moves.length; i++) {
@@ -289,8 +395,7 @@ export function tpsAt(model: ReplayModel, idx: number, execMs: number): number |
 
 /** Scramble plus the first `idx` solve moves, in the cube's own frame. */
 export function corePrefix(model: ReplayModel, idx: number): OuterMove[] {
-  const played = model.moves.slice(0, idx).map((m) => m.move);
-  return [...model.scrambleMoves, ...played.filter((m): m is OuterMove => m !== null)];
+  return [...model.scrambleMoves, ...model.moves.slice(0, idx).flatMap((m) => m.net)];
 }
 
 /** Any core-frame sequence written the way the user holds the cube. */
