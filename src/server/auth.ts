@@ -28,6 +28,13 @@ function createAuth(db: Db) {
         // an existing email/password account links to it instead of failing
         // with account_not_linked
         trustedProviders: ["wca"],
+        // ...and the *local* account does not have to be verified either.
+        // better-auth checks both sides; this app has no email verification
+        // flow at all, so every password account has emailVerified = false
+        // and linking could otherwise never succeed. The trade-off: whoever
+        // registered an address first owns it, and a WCA login with that
+        // address joins that account.
+        requireLocalEmailVerified: false,
       },
     },
     plugins: wcaEnabled()
