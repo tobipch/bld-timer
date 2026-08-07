@@ -28,7 +28,9 @@ export interface SolveRecord {
   /** outer move + timestamp (cube clock when available) */
   moves: { m: string; t: number }[];
   reconstruction: Reconstruction;
-  /** why this solve DNF'd; null while untagged */
+  /** why this solve DNF'd — several reasons allowed; empty while untagged */
+  dnfCategoryIds?: string[] | null;
+  /** single reason of solves stored before several were possible */
   dnfCategoryId?: string | null;
   /** free-text note, e.g. what exactly went wrong */
   note?: string | null;
@@ -39,7 +41,9 @@ export interface SolveRecord {
 /** Fields of a stored solve the user can change afterwards. */
 export interface SolvePatch {
   result?: "ok" | "dnf";
-  dnfCategoryId?: string | null;
+  dnfCategoryIds?: string[] | null;
+  /** only ever cleared: writing the tags supersedes the legacy single field */
+  dnfCategoryId?: null;
   note?: string | null;
   confirmedFindings?: number[] | null;
 }

@@ -101,7 +101,7 @@ export const solve = pgTable(
     reconstruction: jsonb("reconstruction").notNull(),
     // no FK: deleting a category clears the tag explicitly, so a solve is
     // never held hostage by its category
-    dnfCategoryId: text("dnf_category_id"),
+    dnfCategoryIds: jsonb("dnf_category_ids").$type<string[]>(),
     note: text("note"),
     confirmedFindings: jsonb("confirmed_findings"),
   },

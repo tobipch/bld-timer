@@ -1,5 +1,5 @@
 import type { APIEvent } from "@solidjs/start/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { schema } from "~/server/db";
 import { handle, json, requireUser } from "~/server/api";
 
@@ -25,10 +25,12 @@ export const DELETE = (event: APIEvent) =>
     const { db, userId } = await requireUser(event.request);
     const id = event.params.id;
     // untag first so no solve keeps pointing at a category that is gone
-    await db
-      .update(schema.solve)
-      .set({ dnfCategoryId: null })
-      .where(and(eq(schema.solve.dnfCategoryId, id), eq(schema.solve.userId, userId)));
+    await db.execute(
+      sql`UPDATE "solve" SET "dnf_category_ids" = (
+            SELECT jsonb_agg(x) FROM jsonb_array_elements_text("dnf_category_ids") AS x WHERE x <> ${id}
+          )
+          WHERE "user_id" = ${userId} AND "dnf_category_ids" @> ${JSON.stringify([id])}::jsonb`,
+    );
     await db
       .delete(schema.dnfCategory)
       .where(and(eq(schema.dnfCategory.id, id), eq(schema.dnfCategory.userId, userId)));

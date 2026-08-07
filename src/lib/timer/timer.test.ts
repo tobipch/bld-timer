@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { algToOuterMoves, invertOuterMoves } from "../cube/alg";
+import type { OuterMove } from "../cube/state";
 import { buffersFromNames } from "../engine/classify";
 import { defaultBuffers } from "../cube/speffz";
 import { ScrambleFollower } from "./follow";
@@ -164,6 +165,75 @@ describe("TimerMachine", () => {
     m.onCubeMove({ face: "R", amount: 3 }, 4000, 4000); // now physically solved
     expect(m.phase).toBe("scrambling");
     expect(m.snapshot().scramble).toBe("F2 D");
+  });
+
+  it("four U turns reset the tracking to a solved cube", () => {
+    const m = readyMachine("U R");
+    // the tracking is off — say so on the cube instead of reaching for a button
+    const u = { face: "U", amount: 1 } as const;
+    for (let i = 0; i < 3; i++) m.onCubeMove(u, 0, 0);
+    expect(m.cubeIsSolved).toBe(false);
+    m.onCubeMove(u, 0, 0);
+    expect(m.cubeIsSolved).toBe(true);
+    // and the scramble is waiting to be applied again
+    expect(m.phase).toBe("scrambling");
+    expect(m.snapshot().follower?.isDone).toBe(false);
+  });
+
+  it("accepts the reset on D, counter-clockwise and as half turns", () => {
+    for (const move of [
+      { face: "D", amount: 1 } as const,
+      { face: "U", amount: 3 } as const,
+      { face: "D", amount: 3 } as const,
+    ]) {
+      const m = readyMachine("U R");
+      for (let i = 0; i < 4; i++) m.onCubeMove(move, 0, 0);
+      expect(m.cubeIsSolved).toBe(true);
+    }
+    const half = readyMachine("U R");
+    half.onCubeMove({ face: "U", amount: 2 }, 0, 0);
+    half.onCubeMove({ face: "U", amount: 2 }, 0, 0);
+    expect(half.cubeIsSolved).toBe(true);
+  });
+
+  it("does not reset on other faces, mixed directions or interruptions", () => {
+    const cases: OuterMove[][] = [
+      // wrong face
+      [
+        { face: "R", amount: 1 },
+        { face: "R", amount: 1 },
+        { face: "R", amount: 1 },
+        { face: "R", amount: 1 },
+      ],
+      // back and forth is a fidget, not a gesture
+      [
+        { face: "U", amount: 1 },
+        { face: "U", amount: 3 },
+        { face: "U", amount: 1 },
+        { face: "U", amount: 3 },
+      ],
+      // interrupted by another face
+      [
+        { face: "U", amount: 1 },
+        { face: "U", amount: 1 },
+        { face: "R", amount: 1 },
+        { face: "U", amount: 1 },
+        { face: "U", amount: 1 },
+      ],
+    ];
+    for (const moves of cases) {
+      const m = readyMachine("U R");
+      for (const mv of moves) m.onCubeMove(mv, 0, 0);
+      expect(m.cubeIsSolved).toBe(false);
+    }
+  });
+
+  it("ignores the gesture while the timer runs", () => {
+    const m = readyMachine("U R");
+    m.trigger(1000);
+    for (let i = 0; i < 4; i++) m.onCubeMove({ face: "U", amount: 1 }, 2000 + i, 2000 + i);
+    expect(m.phase).toBe("exec");
+    expect(m.snapshot().moveCount).toBe(4);
   });
 
   it("after a success the next scramble starts immediately", () => {

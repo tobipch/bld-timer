@@ -25,7 +25,7 @@ export function DnfSummary() {
             {(r) => (
               <span
                 class="dnf-bar-seg"
-                style={{ width: `${r.ofAll * 100}%`, background: r.category?.color ?? "var(--border)" }}
+                style={{ width: `${r.barShare * 100}%`, background: r.category?.color ?? "var(--border)" }}
                 title={`${r.category?.name ?? "untagged"}: ${r.count}`}
               />
             )}

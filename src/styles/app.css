@@ -221,6 +221,10 @@ select:focus {
   display: inline-block;
 }
 
+.conn-hint {
+  font-size: 12px;
+}
+
 .conn-error {
   cursor: pointer;
   font-size: 13px;
@@ -1362,18 +1366,26 @@ select:focus {
   gap: 8px;
 }
 
-.ask-label {
-  font-weight: 600;
-}
-
 .ask-hint {
   font-size: 12px;
 }
 
-.last-solve-tagged {
+.ask-label {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-weight: 600;
+}
+
+.dnf-card-hint {
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.table-note {
+  font-size: 12px;
+  margin: 8px 0 0;
 }
 
 .link-btn {

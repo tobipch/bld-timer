@@ -1,4 +1,5 @@
 import { applyMove, isSolved, solvedState, type CubeState, type OuterMove } from "../cube/state";
+import type { Face } from "../cube/geometry";
 import { reconstructSolve, type Reconstruction, type TimedMove } from "../engine/reconstruct";
 import type { BufferRefs } from "../engine/classify";
 import type { JudgeContext } from "../engine/judge";
@@ -15,6 +16,9 @@ import { ScrambleFollower } from "./follow";
  *
  * The solve only ever ends with the trigger (space) — never automatically,
  * even when the cube is solved.
+ *
+ * Four quarter turns of U or D in the same direction resets the tracking to
+ * a solved cube, so a desync can be fixed on the cube itself.
  */
 
 export type Phase = "disconnected" | "awaitSolved" | "scrambling" | "ready" | "memo" | "exec" | "done";
@@ -108,16 +112,46 @@ export class TimerMachine {
     this.emit();
   }
 
-  /** Desync escape hatch: declare the cube's current physical state solved. */
+  /**
+   * Desync escape hatch: declare the cube's current physical state solved.
+   * Whatever the tracking believed, we start over from here — with a fresh
+   * follower, so the scramble can be applied again.
+   */
   markSolved() {
     this.cubeState = solvedState();
-    if (this.phase === "awaitSolved") {
-      this.phase = "scrambling";
-      this.applyScrambleIfPending();
-    } else if (this.phase === "scrambling") {
-      this.follower = this.scramble ? new ScrambleFollower(this.scramble) : null;
+    this.resetGesture = null;
+    if (this.phase === "disconnected" || this.phase === "memo" || this.phase === "exec") {
+      this.emit();
+      return;
     }
+    this.phase = "scrambling";
+    this.applyScrambleIfPending();
+    this.follower = this.scramble ? new ScrambleFollower(this.scramble) : null;
     this.emit();
+  }
+
+  /**
+   * The reset gesture: four quarter turns of U or D in the same direction.
+   * It leaves the cube exactly as it was, so it cannot be confused with
+   * solving — and no scramble or alg ever contains it — which makes it a safe
+   * way to say "this cube is solved" without putting the cube down. Ignored
+   * while the timer runs, where four identical turns would be a real (if
+   * unusual) part of the solve.
+   */
+  private resetGesture: { face: Face; amount: 1 | 2 | 3; quarters: number } | null = null;
+
+  private isResetGesture(move: OuterMove): boolean {
+    if (move.face !== "U" && move.face !== "D") {
+      this.resetGesture = null;
+      return false;
+    }
+    const g = this.resetGesture;
+    if (g && g.face === move.face && g.amount === move.amount) {
+      g.quarters += move.amount === 2 ? 2 : 1;
+    } else {
+      this.resetGesture = { face: move.face, amount: move.amount, quarters: move.amount === 2 ? 2 : 1 };
+    }
+    return this.resetGesture!.quarters >= 4;
   }
 
   /** Provide the (async-generated) scramble for the next solve. */
@@ -136,6 +170,12 @@ export class TimerMachine {
 
   onCubeMove(move: OuterMove, tLocal: number, tCube?: number) {
     this.cubeState = applyMove(this.cubeState, move);
+    const running = this.phase === "memo" || this.phase === "exec";
+    if (running) this.resetGesture = null;
+    else if (this.isResetGesture(move)) {
+      this.markSolved();
+      return;
+    }
     switch (this.phase) {
       case "scrambling": {
         this.follower?.onMove(move);

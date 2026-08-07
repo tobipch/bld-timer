@@ -1,7 +1,7 @@
 import { A } from "@solidjs/router";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type uPlotType from "uplot";
-import { dnfBreakdown, formatPct } from "~/lib/dnf";
+import { categoryIdsOf, dnfBreakdown, formatPct } from "~/lib/dnf";
 import { exportSolvesMarkdown, solvesWithFeedback } from "~/lib/export";
 import { aoN, bestAoN, bestSingle, boN, formatAvg, formatMs, meanSplit, successRate } from "~/lib/stats";
 import type { SolveRecord } from "~/lib/storage/types";
@@ -141,7 +141,7 @@ function FailureAnalysis(props: { solves: SolveRecord[] }) {
   const stats = createMemo(() => dnfBreakdown(props.solves, app.dnfCategories()));
   const untagged = createMemo(() =>
     props.solves
-      .filter((s) => s.result === "dnf" && !s.dnfCategoryId)
+      .filter((s) => s.result === "dnf" && categoryIdsOf(s).length === 0)
       .sort((a, b) => b.startedAt - a.startedAt),
   );
 
@@ -172,7 +172,7 @@ function FailureAnalysis(props: { solves: SolveRecord[] }) {
             {(r) => (
               <span
                 class="dnf-bar-seg"
-                style={{ width: `${r.ofAll * 100}%`, background: r.category?.color ?? "var(--border)" }}
+                style={{ width: `${r.barShare * 100}%`, background: r.category?.color ?? "var(--border)" }}
                 title={`${r.category?.name ?? "untagged"}: ${r.count}`}
               />
             )}
@@ -215,6 +215,11 @@ function FailureAnalysis(props: { solves: SolveRecord[] }) {
               </For>
             </tbody>
           </table>
+          <Show when={stats().multiTagged}>
+            <p class="muted table-note">
+              A DNF can carry several reasons, so "of all DNFs" adds up to more than 100%.
+            </p>
+          </Show>
         </Show>
 
         <Show when={untagged().length > 0}>

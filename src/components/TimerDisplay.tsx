@@ -44,7 +44,7 @@ export function TimerDisplay(props: { armed: boolean }) {
       case "disconnected":
         return "not connected";
       case "awaitSolved":
-        return "solve the cube to continue";
+        return "solve the cube to continue — or spin U/D four times";
       case "scrambling":
         return "scramble the cube";
       case "ready":

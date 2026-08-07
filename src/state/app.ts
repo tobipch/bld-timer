@@ -8,7 +8,8 @@ import type { CubeIO } from "~/lib/cube-io/types";
 import { VirtualCube } from "~/lib/cube-io/virtual";
 import { createLocalStorageAdapter } from "~/lib/storage/local";
 import { createRemoteAdapter, fetchServerStatus, type ServerStatus } from "~/lib/storage/remote";
-import { DEFAULT_DNF_CATEGORIES } from "~/lib/dnf";
+import { categoryIdsOf, DEFAULT_DNF_CATEGORIES } from "~/lib/dnf";
+import { cleanScramble } from "~/lib/scramble";
 import type {
   AlgExecution,
   DnfCategory,
@@ -127,8 +128,12 @@ function createApp() {
     setScrambleLoading(true);
     try {
       const { randomScrambleForEvent } = await import("cubing/scramble");
-      const alg = await randomScrambleForEvent("333bf");
-      machine.setScramble(alg.toString());
+      // about one in six 3BLD scrambles has its orientation suffix cancel
+      // with the last move; draw again rather than hand out a wasted turn
+      const alg = await cleanScramble(async () =>
+        (await randomScrambleForEvent("333bf")).toString(),
+      );
+      machine.setScramble(alg);
     } catch (e) {
       setError(`scramble generation failed: ${e}`);
     } finally {
@@ -251,16 +256,25 @@ function createApp() {
     }
   }
 
-  /** Tag a DNF with its reason (or clear it with null). */
-  async function setDnfCategory(id: string, categoryId: string | null) {
-    if (pendingDnfId() === id) setPendingDnfId(null);
-    await updateSolve(id, { result: "dnf", dnfCategoryId: categoryId });
+  /** Add or remove one reason on a DNF; a solve can carry several. */
+  async function toggleDnfCategory(id: string, categoryId: string) {
+    const solve = solves().find((s) => s.id === id);
+    if (!solve) return;
+    const current = categoryIdsOf(solve);
+    const next = current.includes(categoryId)
+      ? current.filter((c) => c !== categoryId)
+      : [...current, categoryId];
+    if (next.length > 0 && pendingDnfId() === id) setPendingDnfId(null);
+    await updateSolve(id, { result: "dnf", dnfCategoryIds: next, dnfCategoryId: null });
   }
 
   /** Flip a solve between OK and DNF after the fact. */
   async function setSolveResult(id: string, result: "ok" | "dnf") {
     // going back to OK drops the reason; going to DNF keeps whatever was set
-    await updateSolve(id, result === "ok" ? { result, dnfCategoryId: null } : { result });
+    await updateSolve(
+      id,
+      result === "ok" ? { result, dnfCategoryIds: [], dnfCategoryId: null } : { result },
+    );
     if (result === "dnf") setPendingDnfId(id);
     else if (pendingDnfId() === id) setPendingDnfId(null);
   }
@@ -290,7 +304,13 @@ function createApp() {
   async function deleteDnfCategory(id: string) {
     batch(() => {
       setDnfCategories((xs) => xs.filter((c) => c.id !== id));
-      setSolves((xs) => xs.map((s) => (s.dnfCategoryId === id ? { ...s, dnfCategoryId: null } : s)));
+      setSolves((xs) =>
+        xs.map((s) =>
+          categoryIdsOf(s).includes(id)
+            ? { ...s, dnfCategoryIds: categoryIdsOf(s).filter((c) => c !== id), dnfCategoryId: null }
+            : s,
+        ),
+      );
       setSettings("dnfSeeded", true);
     });
     try {
@@ -345,7 +365,7 @@ function createApp() {
     dnfCategories,
     pendingDnfId,
     setPendingDnfId,
-    setDnfCategory,
+    toggleDnfCategory,
     setSolveResult,
     addDnfCategory,
     updateDnfCategory,

@@ -1,6 +1,6 @@
 import { A } from "@solidjs/router";
 import { createMemo, For, Show } from "solid-js";
-import { categoryOf } from "~/lib/dnf";
+import { categoriesOf } from "~/lib/dnf";
 import { formatMs } from "~/lib/stats";
 import { useApp } from "~/state/app";
 
@@ -18,7 +18,7 @@ export function TimeList() {
         <ul>
           <For each={items()}>
             {({ s, n }) => {
-              const cat = createMemo(() => categoryOf(s, app.dnfCategories()));
+              const cats = createMemo(() => categoriesOf(s, app.dnfCategories()));
               return (
                 <li
                   classList={{ selected: app.selectedSolveId() === s.id }}
@@ -38,11 +38,15 @@ export function TimeList() {
                   >
                     <span
                       class="tl-cat"
-                      classList={{ untagged: !cat() }}
-                      style={cat() ? { "--chip": cat()!.color } : undefined}
-                      title={cat()?.name ?? "not categorised yet"}
+                      classList={{ untagged: cats().length === 0 }}
+                      style={cats().length ? { "--chip": cats()[0].color } : undefined}
+                      title={cats().map((c) => c.name).join(" · ") || "not categorised yet"}
                     >
-                      {cat()?.name ?? "?"}
+                      {cats().length === 0
+                        ? "?"
+                        : cats().length === 1
+                          ? cats()[0].name
+                          : `${cats()[0].name} +${cats().length - 1}`}
                     </span>
                   </Show>
                   <A

@@ -1,10 +1,10 @@
 import { A, useNavigate, useParams } from "@solidjs/router";
-import { createMemo, createSignal, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import { DnfPicker } from "~/components/DnfPicker";
 import { ReconstructionView } from "~/components/ReconstructionView";
 import { SolveNotes } from "~/components/SolveNotes";
 import { SolvePlayer } from "~/components/SolvePlayer";
-import { categoryOf } from "~/lib/dnf";
+import { categoriesOf } from "~/lib/dnf";
 import { buildReplay, tpsAt } from "~/lib/replay";
 import { formatMs } from "~/lib/stats";
 import { settings } from "~/state/settings";
@@ -116,15 +116,16 @@ export default function SolvePage() {
               <div class="card dnf-card">
                 <div class="dnf-card-head">
                   <h4>Why did it fail?</h4>
-                  <Show when={categoryOf(s(), app.dnfCategories())}>
+                  <For each={categoriesOf(s(), app.dnfCategories())}>
                     {(c) => (
-                      <span class="dnf-current" style={{ "--chip": c().color }}>
-                        {c().name}
+                      <span class="dnf-current" style={{ "--chip": c.color }}>
+                        {c.name}
                       </span>
                     )}
-                  </Show>
+                  </For>
+                  <span class="muted dnf-card-hint">pick as many as apply</span>
                 </div>
-                <DnfPicker solveId={s().id} current={s().dnfCategoryId} />
+                <DnfPicker solve={s()} />
                 <SolveNotes solve={s()} />
               </div>
             </Show>

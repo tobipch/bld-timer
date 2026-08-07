@@ -9,8 +9,8 @@ back with the exact timing your cube recorded — and see the cube, the pieces s
 where your hands hesitated. That is how you find out what went wrong, without the tool having to
 guess.
 
-Every DNF gets **tagged with a reason** in one keypress, so the stats answer both questions:
-how often do I DNF, and what do I DNF at.
+Every DNF gets **tagged with its reasons** in one keypress each — as many as apply — so the
+stats answer both questions: how often do I DNF, and what do I DNF at.
 
 Alongside that, the reconstruction engine still recognizes commutators, parities, LTCTs, flips and
 twists to build a **self-learning algorithm database** with your own execution times — as an aid,

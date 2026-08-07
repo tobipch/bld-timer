@@ -26,9 +26,13 @@ export function ConnectBar() {
             <Show when={app.battery() !== null}>
               <span class="muted">{app.battery()}%</span>
             </Show>
-            <button onClick={() => app.machine.markSolved()} title="Declare the cube's current state solved (fixes desync)">
+            <button
+              onClick={() => app.machine.markSolved()}
+              title="Declare the cube's current state solved (fixes desync) — or spin U or D four times on the cube"
+            >
               Mark solved
             </button>
+            <span class="muted conn-hint">or spin U/D 4× on the cube</span>
             <button onClick={() => app.disconnect()}>Disconnect</button>
           </>
         )}

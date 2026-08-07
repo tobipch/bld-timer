@@ -1,5 +1,5 @@
 import { A } from "@solidjs/router";
-import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { ConnectBar } from "~/components/ConnectBar";
 import { DnfPicker } from "~/components/DnfPicker";
 import { DnfSummary } from "~/components/DnfSummary";
@@ -10,7 +10,7 @@ import { SolveNotes } from "~/components/SolveNotes";
 import { StatsPanel } from "~/components/StatsPanel";
 import { TimeList } from "~/components/TimeList";
 import { TimerDisplay } from "~/components/TimerDisplay";
-import { categoryOf } from "~/lib/dnf";
+import { categoriesOf } from "~/lib/dnf";
 import { formatMs } from "~/lib/stats";
 import type { SolveRecord } from "~/lib/storage/types";
 import { settings } from "~/state/settings";
@@ -31,7 +31,7 @@ export default function TimerPage() {
  */
 function LastSolveCard(props: { solve: SolveRecord }) {
   const app = useApp();
-  const cat = createMemo(() => categoryOf(props.solve, app.dnfCategories()));
+  const cats = createMemo(() => categoriesOf(props.solve, app.dnfCategories()));
   const isDnf = () => props.solve.result === "dnf";
 
   return (
@@ -49,25 +49,24 @@ function LastSolveCard(props: { solve: SolveRecord }) {
       </div>
 
       <Show when={isDnf()}>
-        <Show
-          when={!cat()}
-          fallback={
-            <div class="last-solve-tagged">
-              <span class="dnf-current" style={{ "--chip": cat()!.color }}>
-                {cat()!.name}
-              </span>
-              <button class="link-btn muted" onClick={() => void app.setDnfCategory(props.solve.id, null)}>
-                change
-              </button>
-            </div>
-          }
-        >
-          <div class="last-solve-ask">
-            <span class="ask-label">Why did it fail?</span>
-            <DnfPicker solveId={props.solve.id} current={props.solve.dnfCategoryId} hotkeys />
-            <span class="muted ask-hint">press 1–9 · or find out in the replay</span>
-          </div>
-        </Show>
+        <div class="last-solve-ask">
+          <span class="ask-label" classList={{ warn: cats().length === 0 }}>
+            <Show when={cats().length > 0} fallback="Why did it fail?">
+              Failed because of{" "}
+              <For each={cats()}>
+                {(c) => (
+                  <span class="dnf-current" style={{ "--chip": c.color }}>
+                    {c.name}
+                  </span>
+                )}
+              </For>
+            </Show>
+          </span>
+          <DnfPicker solve={props.solve} hotkeys />
+          <span class="muted ask-hint">
+            press 1–9 to toggle · pick as many as apply · or find out in the replay
+          </span>
+        </div>
         <SolveNotes solve={props.solve} />
       </Show>
     </div>

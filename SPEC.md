@@ -87,6 +87,17 @@ move sequence the user actually performed** as that case's algorithm.
 
 ## 2. Core solve flow (timer state machine)
 
+**Reset gesture.** Four quarter turns of U or D in the same direction declare the cube
+solved, which fixes a desync without reaching for the keyboard mid-session. The gesture is
+safe by construction: it returns the cube exactly where it was, and no scramble or
+algorithm ever contains four identical turns in a row. It is ignored while the timer runs.
+
+**Scramble hygiene.** 3BLD scrambles end with a random orientation written as wide moves,
+and cubing.js does not check that suffix against the scramble it follows: about one in six
+comes out like `L2 U2 L2 Rw' Dw`, where `Rw'` is `L' x'` and the `L2` merges with it into a
+single `L`. Scrambles are translated into the outer turns the cube reports and redrawn when
+the same face appears twice in a row.
+
 ```
 IDLE ──connect──▶ AWAIT_SOLVED ──cube solved──▶ SCRAMBLING ──scramble matches──▶ READY
                                                      ▲                            │ space
@@ -248,9 +259,14 @@ among them — knowing *which* pieces are unsolved helps, counting them does not
 
 ### DNF categories
 
-Every DNF is tagged with a reason (`Memo lost`, `Edge exec`, `Parity`, …). The list is
-user-editable — rename, recolour, delete, add. Tagging takes one keypress (`1`–`9`) right
-after the solve, which is the only way the numbers stay honest.
+Every DNF is tagged with its reasons (`Memo lost`, `Edge exec`, `Parity`, …) — **several per
+solve**, because "Edge exec *and* Wrong cancel" says considerably more than either alone. The
+list is user-editable: rename, recolour, delete, add. Tagging takes one keypress (`1`–`9`,
+toggling) right after the solve, which is the only way the numbers stay honest.
+
+In the statistics a solve counts under each of its reasons, so "of all DNFs" can add up past
+100% (said so on the page). The outcome bar keeps its true DNF width and splits it by how
+often each reason was named, so it stays a partition of the solves.
 
 ---
 

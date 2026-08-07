@@ -19,12 +19,12 @@ export const PATCH = (event: APIEvent) =>
     const body = (await event.request.json()) as SolvePatch;
     const patch: Partial<{
       result: string;
-      dnfCategoryId: string | null;
+      dnfCategoryIds: string[] | null;
       note: string | null;
       confirmedFindings: number[] | null;
     }> = {};
     if (body.result === "ok" || body.result === "dnf") patch.result = body.result;
-    if ("dnfCategoryId" in body) patch.dnfCategoryId = body.dnfCategoryId ?? null;
+    if ("dnfCategoryIds" in body) patch.dnfCategoryIds = body.dnfCategoryIds ?? null;
     if ("note" in body) patch.note = body.note ?? null;
     if ("confirmedFindings" in body) patch.confirmedFindings = body.confirmedFindings ?? null;
     if (Object.keys(patch).length === 0) return json({ error: "empty patch" }, 400);
