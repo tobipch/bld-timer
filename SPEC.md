@@ -243,9 +243,7 @@ stream:
 - **Groups**: moves are split into bursts wherever the hands paused — a method-agnostic
   stand-in for "one alg". Each burst shows the pause before it, its duration and its TPS.
 - **At this point**: which pieces are still unsolved, by letter in the user's scheme, plus the
-  exact alg that reproduces this state from a solved cube. The same applies wherever the app
-  offers to put the cube back somewhere: always *from solved*, never "from where your cube is
-  now" — after a DNF the timer has already made you solve it. That alg is not the raw
+  exact alg that reproduces this state from a solved cube. That alg is not the raw
   "scramble + 90 moves played" but a fresh scramble of the same length as a WCA one (19–21
   moves, from cubing.js's two-phase solver), computed per position and cached — copy it, put
   the cube back where it broke and try again.
@@ -277,6 +275,21 @@ toggling) right after the solve, which is the only way the numbers stay honest.
 In the statistics a solve counts under each of its reasons, so "of all DNFs" can add up past
 100% (said so on the page). The outcome bar keeps its true DNF width and splits it by how
 often each reason was named, so it stays a partition of the solves.
+
+---
+
+### Getting the cube to a point of the solve
+
+Any step of the analysis can be jumped to: the app answers with the turns that bring the
+cube **from the state it is in right now** to that point, so you can redo the alg by hand.
+
+The machine keeps the turns that lead from a solved cube to the current one, which makes
+this plain algebra — undo the way here, walk the way there, let the solver shorten the
+result to scramble length. No assumption about where the cube has been: the earlier version
+computed a path from the solve's end state, but the timer makes you solve the cube before
+the next scramble, so by the time anyone reads the advice it is somewhere else entirely.
+Without a connected cube there is nothing to read, and the answer is honestly "from a
+solved cube".
 
 ---
 

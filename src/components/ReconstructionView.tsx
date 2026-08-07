@@ -11,6 +11,7 @@ import type { OrientationMaps } from "~/lib/engine/present";
 import type { MistakeDiagnosis, Reconstruction, ReconstructionStep } from "~/lib/engine/reconstruct";
 import { formatMs } from "~/lib/stats";
 import { settings } from "~/state/settings";
+import { useApp } from "~/state/app";
 import { CubeReplay } from "./CubeReplay";
 
 const KIND_CLASS: Record<string, string> = {
@@ -37,6 +38,18 @@ function ReplayButton(props: { onClick: () => void }) {
   );
 }
 
+function JumpButton(props: { onClick: () => void; busy?: boolean }) {
+  return (
+    <button
+      class="replay-btn jump-btn"
+      title="Turns that bring your cube to this point, from where it is right now"
+      onClick={props.onClick}
+    >
+      {props.busy ? "…" : "→"}
+    </button>
+  );
+}
+
 function StepItem(props: {
   step: ReconstructionStep;
   ghost?: boolean;
@@ -47,6 +60,8 @@ function StepItem(props: {
   /** this is the first thing that went wrong, and more followed from it */
   hasFollowUps?: boolean;
   onReplay?: () => void;
+  onJump?: () => void;
+  jumpBusy?: boolean;
 }) {
   if (props.step.kind === "unknown") {
     return (
@@ -59,6 +74,9 @@ function StepItem(props: {
         <span class="step-moves mono">{humanizeMovesVerbatim(props.step.moves, settings.orientation)}</span>
         <Show when={props.onReplay}>
           <ReplayButton onClick={props.onReplay!} />
+        </Show>
+        <Show when={props.onJump}>
+          <JumpButton onClick={props.onJump!} busy={props.jumpBusy} />
         </Show>
         <Show when={props.broken}>
           <span class="bad step-flag">⟵ solve breaks down from here</span>
@@ -110,6 +128,9 @@ function StepItem(props: {
         </span>
         <Show when={props.onReplay}>
           <ReplayButton onClick={props.onReplay!} />
+        </Show>
+        <Show when={props.onJump}>
+          <JumpButton onClick={props.onJump!} busy={props.jumpBusy} />
         </Show>
       </div>
       <div class="step-row2 mono muted">
@@ -255,6 +276,7 @@ export function ReconstructionView(props: {
   /** errors-first view: full solution folded away (default on the timer page) */
   compact?: boolean;
 }) {
+  const app = useApp();
   const maps = createMemo(() => makeOrientationMaps(settings.orientation));
   const [replay, setReplay] = createSignal<ReplayTarget | null>(null);
   // older stored solves only carry the single diagnosis field
@@ -411,34 +433,40 @@ export function ReconstructionView(props: {
   });
 
   /*
-   * Getting the cube back to the moment before the mistake. It used to be
-   * computed as a path from the solve's end state, which is wrong twice over:
-   * after a DNF the timer makes you solve the cube before the next scramble,
-   * so by the time this is read the cube is solved — and when the mistake is
-   * a case that was never solved at all, the "path" from the end is empty and
-   * the answer came out as "already there". Scrambling into the state from a
-   * solved cube is true regardless of where the cube has been since.
+   * Getting the cube to a given moment of the solve. Expressed as plain
+   * algebra: undo the turns that led from a solved cube to the one in your
+   * hands, then apply scramble + the moves up to that point. The solver
+   * shortens the result to scramble length.
+   *
+   * Reading the live cube state matters — the earlier version assumed the
+   * cube still sat in the solve's end state, but the timer makes you solve it
+   * before the next scramble, so by the time anyone reads this it does not.
    */
-  const [backPath, setBackPath] = createSignal<string | null>(null);
-  const [backBusy, setBackBusy] = createSignal(false);
-  const computeBackPath = async () => {
-    const idx = errorMoveIdx();
-    if (idx === null) return;
-    setBackBusy(true);
+  const [jump, setJump] = createSignal<{ moveIdx: number; alg: string; fromSolved: boolean } | null>(null);
+  const [jumpBusy, setJumpBusy] = createSignal<number | null>(null);
+
+  const jumpTo = async (moveIdx: number) => {
+    setJumpBusy(moveIdx);
     try {
-      const { shortScrambleFor } = await import("~/lib/solver");
+      const { pathBetween, shortScrambleFor } = await import("~/lib/solver");
       let scrambleMoves: OuterMove[] = [];
       try {
         scrambleMoves = algToOuterMoves(props.scramble ?? "");
       } catch {
         scrambleMoves = [];
       }
-      const target = [...scrambleMoves, ...rawMoves().slice(0, idx)];
-      const short = await shortScrambleFor(target);
-      const moves = short ?? target;
-      setBackPath(moves.length === 0 ? "(a solved cube — that is the state)" : userAlg(moves));
+      // without a connected cube there is no state to start from, so the
+      // answer is the honest one: from a solved cube
+      const from = app.cube() ? app.machine.movesSinceSolved() : [];
+      const path = pathBetween(from, [...scrambleMoves, ...rawMoves().slice(0, moveIdx)]);
+      const short = await shortScrambleFor(path);
+      setJump({
+        moveIdx,
+        alg: userAlg(short ?? path),
+        fromSolved: from.length === 0,
+      });
     } finally {
-      setBackBusy(false);
+      setJumpBusy(null);
     }
   };
 
@@ -545,18 +573,12 @@ export function ReconstructionView(props: {
           </Show>
           <Show when={errorMoveIdx() !== null && canReplay()}>
             <div class="back-path">
-              <Show
-                when={backPath()}
-                fallback={
-                  <button disabled={backBusy()} onClick={() => void computeBackPath()}>
-                    {backBusy() ? "computing…" : "Scramble to get back to just before the mistake"}
-                  </button>
-                }
+              <button
+                disabled={jumpBusy() !== null}
+                onClick={() => void jumpTo(errorMoveIdx()!)}
               >
-                <span class="muted">From a solved cube, apply: </span>
-                <strong class="mono">{backPath()}</strong>
-                <span class="muted"> — then you're right before the mistake and can finish by hand.</span>
-              </Show>
+                {jumpBusy() === errorMoveIdx() ? "computing…" : "Bring my cube to just before the mistake"}
+              </button>
             </div>
           </Show>
         </div>
@@ -569,16 +591,40 @@ export function ReconstructionView(props: {
           <ol class="recon-steps">
             <For each={problemRows()}>
               {(row) => (
-                <StepItem
-                  step={row.step}
-                  flagged={wrongIdxs().has(row.idx)}
-                  broken={brokenStepIdx() === row.idx}
-                  followUp={followUps().consequences.has(row.idx)}
-                  hasFollowUps={followUps().leads.has(row.idx)}
-                  onReplay={
-                    canReplay() ? () => replaySpan(row.step.startIdx, row.step.endIdx + 1) : undefined
-                  }
-                />
+                <>
+                  <StepItem
+                    step={row.step}
+                    flagged={wrongIdxs().has(row.idx)}
+                    broken={brokenStepIdx() === row.idx}
+                    followUp={followUps().consequences.has(row.idx)}
+                    hasFollowUps={followUps().leads.has(row.idx)}
+                    onReplay={
+                      canReplay() ? () => replaySpan(row.step.startIdx, row.step.endIdx + 1) : undefined
+                    }
+                    onJump={canReplay() ? () => void jumpTo(row.step.startIdx) : undefined}
+                    jumpBusy={jumpBusy() === row.step.startIdx}
+                  />
+              <Show when={jump()?.moveIdx === row.step.startIdx ? jump() : null}>
+                {(j) => (
+                  <li class="jump-row">
+                    <span class="muted">
+                      {j().fromSolved ? "From a solved cube" : "From your cube as it is now"}, apply:
+                    </span>
+                    <strong class="mono jump-alg">{j().alg || "(you are already there)"}</strong>
+                    <button
+                      class="jump-copy"
+                      onClick={() => void navigator.clipboard?.writeText(j().alg)}
+                      title="Copy"
+                    >
+                      copy
+                    </button>
+                    <button class="jump-copy" onClick={() => setJump(null)} title="Hide">
+                      ×
+                    </button>
+                  </li>
+                )}
+              </Show>
+                </>
               )}
             </For>
           </ol>
@@ -602,18 +648,42 @@ export function ReconstructionView(props: {
                   <For each={g.rows}>
                     {(row) =>
                       row.type === "step" ? (
-                        <StepItem
-                          step={row.step}
-                          flagged={wrongIdxs().has(row.idx)}
-                          broken={brokenStepIdx() === row.idx}
-                          followUp={followUps().consequences.has(row.idx)}
-                          hasFollowUps={followUps().leads.has(row.idx)}
-                          onReplay={
-                            canReplay()
-                              ? () => replaySpan(row.step.startIdx, row.step.endIdx + 1)
-                              : undefined
-                          }
-                        />
+                        <>
+                          <StepItem
+                            step={row.step}
+                            flagged={wrongIdxs().has(row.idx)}
+                            broken={brokenStepIdx() === row.idx}
+                            followUp={followUps().consequences.has(row.idx)}
+                            hasFollowUps={followUps().leads.has(row.idx)}
+                            onReplay={
+                              canReplay()
+                                ? () => replaySpan(row.step.startIdx, row.step.endIdx + 1)
+                                : undefined
+                            }
+                            onJump={canReplay() ? () => void jumpTo(row.step.startIdx) : undefined}
+                            jumpBusy={jumpBusy() === row.step.startIdx}
+                          />
+              <Show when={jump()?.moveIdx === row.step.startIdx ? jump() : null}>
+                {(j) => (
+                  <li class="jump-row">
+                    <span class="muted">
+                      {j().fromSolved ? "From a solved cube" : "From your cube as it is now"}, apply:
+                    </span>
+                    <strong class="mono jump-alg">{j().alg || "(you are already there)"}</strong>
+                    <button
+                      class="jump-copy"
+                      onClick={() => void navigator.clipboard?.writeText(j().alg)}
+                      title="Copy"
+                    >
+                      copy
+                    </button>
+                    <button class="jump-copy" onClick={() => setJump(null)} title="Hide">
+                      ×
+                    </button>
+                  </li>
+                )}
+              </Show>
+                        </>
                       ) : (
                         <GhostCaseItem
                           row={row}

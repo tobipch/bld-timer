@@ -2195,3 +2195,33 @@ select:focus {
   display: flex;
   gap: 8px;
 }
+
+/* ---- "bring my cube here" ---- */
+
+.jump-btn {
+  font-size: 13px;
+}
+
+.jump-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 2px 0 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  background: var(--bg-inset);
+  border: 1px solid var(--accent-dim);
+}
+
+.jump-alg {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.jump-copy {
+  padding: 2px 8px;
+  font-size: 11px;
+}

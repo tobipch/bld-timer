@@ -2,6 +2,15 @@ import { invertOuterMoves, outerMovesToString } from "./cube/alg";
 import type { OuterMove } from "./cube/state";
 
 /**
+ * Turns that take a cube from the state `from` produces to the state
+ * `target` produces (both counted from solved). Undo the way here, then walk
+ * the way there — the solver shortens the result to scramble length.
+ */
+export function pathBetween(from: OuterMove[], target: OuterMove[]): OuterMove[] {
+  return [...invertOuterMoves(from), ...target];
+}
+
+/**
  * A short scramble reaching the state that `moves` produces from solved — the
  * practical replacement for "scramble plus the 90 moves you have played so
  * far", which nobody can type in.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { algToOuterMoves, invertOuterMoves } from "../cube/alg";
+import { algToOuterMoves, invertOuterMoves, outerMoveToString } from "../cube/alg";
 import type { OuterMove } from "../cube/state";
 import { buffersFromNames } from "../engine/classify";
 import { defaultBuffers } from "../cube/speffz";
@@ -234,6 +234,16 @@ describe("TimerMachine", () => {
     for (let i = 0; i < 4; i++) m.onCubeMove({ face: "U", amount: 1 }, 2000 + i, 2000 + i);
     expect(m.phase).toBe("exec");
     expect(m.snapshot().moveCount).toBe(4);
+  });
+
+  it("knows the turns leading from a solved cube to the current one", () => {
+    const m = readyMachine("U R");
+    expect(m.movesSinceSolved().map(outerMoveToString)).toEqual(["U", "R"]);
+    // undoing them empties the path again rather than letting it grow
+    m.onCubeMove({ face: "R", amount: 3 }, 0, 0);
+    m.onCubeMove({ face: "U", amount: 3 }, 0, 0);
+    expect(m.cubeIsSolved).toBe(true);
+    expect(m.movesSinceSolved()).toEqual([]);
   });
 
   it("after a success the next scramble starts immediately", () => {

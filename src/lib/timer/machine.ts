@@ -60,6 +60,14 @@ export class TimerMachine {
   private scramble: string | null = null;
   private pendingScramble: string | null = null;
 
+  /**
+   * The turns that lead from a solved cube to the state it is in now. Kept
+   * alongside cubeState (and reset with it), it lets anything that needs a
+   * path *to* somewhere express it as plain algebra: invert this, append the
+   * target, and the solver shortens the result.
+   */
+  private sinceSolved: OuterMove[] = [];
+
   private spaceAt: number | null = null;
   private firstMoveAt: number | null = null;
   private moves: RawMove[] = [];
@@ -102,6 +110,7 @@ export class TimerMachine {
   /** Cube connected; we trust the cube to be solved (markSolved fixes desync). */
   connect() {
     this.cubeState = solvedState();
+    this.sinceSolved = [];
     this.phase = "scrambling";
     this.applyScrambleIfPending();
     this.emit();
@@ -119,6 +128,7 @@ export class TimerMachine {
    */
   markSolved() {
     this.cubeState = solvedState();
+    this.sinceSolved = [];
     this.resetGesture = null;
     if (this.phase === "disconnected" || this.phase === "memo" || this.phase === "exec") {
       this.emit();
@@ -170,6 +180,10 @@ export class TimerMachine {
 
   onCubeMove(move: OuterMove, tLocal: number, tCube?: number) {
     this.cubeState = applyMove(this.cubeState, move);
+    // back to solved: the path from solved is empty again, which also keeps
+    // this from growing over a whole session
+    if (isSolved(this.cubeState)) this.sinceSolved = [];
+    else this.sinceSolved.push(move);
     const running = this.phase === "memo" || this.phase === "exec";
     if (running) this.resetGesture = null;
     else if (this.isResetGesture(move)) {
@@ -279,5 +293,10 @@ export class TimerMachine {
 
   get cubeIsSolved(): boolean {
     return isSolved(this.cubeState);
+  }
+
+  /** Turns leading from a solved cube to the state the cube is in now. */
+  movesSinceSolved(): OuterMove[] {
+    return [...this.sinceSolved];
   }
 }
