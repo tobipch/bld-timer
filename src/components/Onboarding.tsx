@@ -11,7 +11,7 @@ export function Onboarding() {
     <div class="card onboarding">
       <h2>Welcome — tell the timer how you solve</h2>
       <p class="muted">
-        The solve analysis checks every executed alg against <em>your</em> method. Pick what you use —
+        This sets your letter scheme, your orientation and the optional automatic analysis. Pick what you use —
         you can change all of this later in Settings.
       </p>
       <ProfileEditor />

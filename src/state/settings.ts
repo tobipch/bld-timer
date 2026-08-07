@@ -18,6 +18,8 @@ export interface Settings {
   showTimeDuringMemo: boolean;
   theme: "dark" | "light";
   sessionId: string | null;
+  /** the default DNF categories have been created once */
+  dnfSeeded: boolean;
 }
 
 const KEY = "bld-timer.settings";
@@ -35,6 +37,7 @@ function defaults(): Settings {
     showTimeDuringMemo: true,
     theme: "dark",
     sessionId: null,
+    dnfSeeded: false,
   };
 }
 

@@ -9,7 +9,7 @@ export default function SettingsPage() {
       <div class="card">
         <h3>Your method</h3>
         <p class="muted">
-          The solve analysis judges every alg against this profile — keep it accurate.
+          Drives the letter scheme, the orientation of the replay and the optional automatic analysis.
         </p>
         <ProfileEditor />
         <Show when={settings.profile.onboarded}>

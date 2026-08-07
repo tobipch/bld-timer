@@ -7,6 +7,15 @@ export interface Session {
   createdAt: number;
 }
 
+/** A reason a solve failed, e.g. "Memo lost". User-defined. */
+export interface DnfCategory {
+  id: string;
+  name: string;
+  /** hex colour used in the picker and the stats bars */
+  color: string;
+  sortIndex: number;
+}
+
 export interface SolveRecord {
   id: string;
   sessionId: string;
@@ -19,13 +28,18 @@ export interface SolveRecord {
   /** outer move + timestamp (cube clock when available) */
   moves: { m: string; t: number }[];
   reconstruction: Reconstruction;
-  /** user feedback on this solve */
+  /** why this solve DNF'd; null while untagged */
+  dnfCategoryId?: string | null;
+  /** free-text note, e.g. what exactly went wrong */
   note?: string | null;
   /** indices of reconstruction findings the user confirmed as correct */
   confirmedFindings?: number[] | null;
 }
 
-export interface SolveFeedbackPatch {
+/** Fields of a stored solve the user can change afterwards. */
+export interface SolvePatch {
+  result?: "ok" | "dnf";
+  dnfCategoryId?: string | null;
   note?: string | null;
   confirmedFindings?: number[] | null;
 }
@@ -53,7 +67,12 @@ export interface StorageAdapter {
     execs: Omit<AlgExecution, "id" | "solveId">[],
   ): Promise<{ solve: SolveRecord; executions: AlgExecution[] }>;
   deleteSolve(id: string): Promise<void>;
-  updateSolveFeedback(id: string, patch: SolveFeedbackPatch): Promise<void>;
+  updateSolve(id: string, patch: SolvePatch): Promise<void>;
   listExecutions(): Promise<AlgExecution[]>;
   deleteExecution(id: string): Promise<void>;
+  listDnfCategories(): Promise<DnfCategory[]>;
+  addDnfCategory(cat: Omit<DnfCategory, "id">): Promise<DnfCategory>;
+  updateDnfCategory(id: string, patch: Partial<Omit<DnfCategory, "id">>): Promise<void>;
+  /** removes the category and untags every solve that used it */
+  deleteDnfCategory(id: string): Promise<void>;
 }

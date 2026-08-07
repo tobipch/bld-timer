@@ -1,4 +1,4 @@
-import type { AlgExecution, Session, SolveRecord, StorageAdapter } from "./types";
+import type { AlgExecution, DnfCategory, Session, SolveRecord, StorageAdapter } from "./types";
 
 /** API-backed adapter (Neon via the server routes). */
 
@@ -40,6 +40,12 @@ const post = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
+const patch = (body: unknown): RequestInit => ({
+  method: "PATCH",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify(body),
+});
+
 export function createRemoteAdapter(): StorageAdapter {
   return {
     mode: "remote",
@@ -55,13 +61,12 @@ export function createRemoteAdapter(): StorageAdapter {
         post({ solve: rec, executions: execs }),
       ),
     deleteSolve: (id) => call(`/api/data/solves/${id}`, { method: "DELETE" }),
-    updateSolveFeedback: (id, patch) =>
-      call(`/api/data/solves/${id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(patch),
-      }),
+    updateSolve: (id, body) => call(`/api/data/solves/${id}`, patch(body)),
     listExecutions: () => call<AlgExecution[]>("/api/data/executions"),
     deleteExecution: (id) => call(`/api/data/executions/${id}`, { method: "DELETE" }),
+    listDnfCategories: () => call<DnfCategory[]>("/api/data/dnf-categories"),
+    addDnfCategory: (cat) => call<DnfCategory>("/api/data/dnf-categories", post(cat)),
+    updateDnfCategory: (id, body) => call(`/api/data/dnf-categories/${id}`, patch(body)),
+    deleteDnfCategory: (id) => call(`/api/data/dnf-categories/${id}`, { method: "DELETE" }),
   };
 }

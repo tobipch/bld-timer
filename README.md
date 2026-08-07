@@ -1,11 +1,20 @@
 # BLD Timer
 
 A smart-cube timer for **3x3 blindfolded**. Connects to QiYi / MoYu smart cubes via
-[btcube-web](https://github.com/simonkellly/btcube-web), splits every solve into **memo** and
-**execution**, and — its defining feature — **reconstructs the solve**: every commutator, parity,
-LTCT, flip and twist you execute is recognized from the cube state, lettered in your scheme, timed,
-and collected into a **self-learning algorithm database**. On a DNF it shows exactly where the
-solve went wrong.
+[btcube-web](https://github.com/simonkellly/btcube-web) and splits every solve into **memo** and
+**execution**.
+
+Its defining feature is the **replay**: step through any solve move by move — manually or played
+back with the exact timing your cube recorded — and see the cube, the pieces still unsolved, and
+where your hands hesitated. That is how you find out what went wrong, without the tool having to
+guess.
+
+Every DNF gets **tagged with a reason** in one keypress, so the stats answer both questions:
+how often do I DNF, and what do I DNF at.
+
+Alongside that, the reconstruction engine still recognizes commutators, parities, LTCTs, flips and
+twists to build a **self-learning algorithm database** with your own execution times — as an aid,
+never as a verdict.
 
 See [SPEC.md](./SPEC.md) for the full design.
 
@@ -34,7 +43,11 @@ with buttons / alg input (the "Auto-scramble" button applies the displayed scram
 
 Solve flow: connect → follow the scramble (green done / bold current / orange pending, red
 corrections) → **space** starts memo → first turn starts execution → **space** stops (the timer
-never stops automatically). Solved at that moment = success, otherwise DNF.
+never stops automatically). Solved at that moment = success, otherwise DNF — then pick the reason
+with `1`–`9`, or open the replay to find it.
+
+In the replay: `←` `→` step, `↑` `↓` jump between pauses, `space` plays, and the timeline curve is
+the number of solved pieces over the solve.
 
 ## Deployment (Vercel + Neon)
 

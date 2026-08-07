@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import * as schema from "./schema";
 import migration0000 from "../../../drizzle/0000_absent_forgotten_one.sql?raw";
 import migration0001 from "../../../drizzle/0001_common_skreet.sql?raw";
+import migration0002 from "../../../drizzle/0002_dnf_categories.sql?raw";
 
 export type Db = NeonHttpDatabase<typeof schema>;
 
@@ -11,6 +12,7 @@ export type Db = NeonHttpDatabase<typeof schema>;
 const MIGRATIONS: { tag: string; sqlText: string }[] = [
   { tag: "0000_absent_forgotten_one", sqlText: migration0000 },
   { tag: "0001_common_skreet", sqlText: migration0001 },
+  { tag: "0002_dnf_categories", sqlText: migration0002 },
 ];
 
 let cached: Db | null | undefined;

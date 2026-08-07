@@ -1,14 +1,18 @@
+import { A } from "@solidjs/router";
 import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import { ConnectBar } from "~/components/ConnectBar";
+import { DnfPicker } from "~/components/DnfPicker";
+import { DnfSummary } from "~/components/DnfSummary";
 import { Onboarding } from "~/components/Onboarding";
 import { DevPanel } from "~/components/DevPanel";
-import { ReconstructionView } from "~/components/ReconstructionView";
 import { ScrambleView } from "~/components/ScrambleView";
 import { SolveNotes } from "~/components/SolveNotes";
 import { StatsPanel } from "~/components/StatsPanel";
 import { TimeList } from "~/components/TimeList";
 import { TimerDisplay } from "~/components/TimerDisplay";
+import { categoryOf } from "~/lib/dnf";
 import { formatMs } from "~/lib/stats";
+import type { SolveRecord } from "~/lib/storage/types";
 import { settings } from "~/state/settings";
 import { useApp } from "~/state/app";
 
@@ -17,6 +21,56 @@ export default function TimerPage() {
     <Show when={settings.profile.onboarded} fallback={<Onboarding />}>
       <TimerInner />
     </Show>
+  );
+}
+
+/**
+ * What happened last: the time, and — when it failed — the one question worth
+ * answering right away. Everything else lives one click deeper, in the
+ * replay.
+ */
+function LastSolveCard(props: { solve: SolveRecord }) {
+  const app = useApp();
+  const cat = createMemo(() => categoryOf(props.solve, app.dnfCategories()));
+  const isDnf = () => props.solve.result === "dnf";
+
+  return (
+    <div class="card last-solve" classList={{ "is-dnf": isDnf() }}>
+      <div class="last-solve-head">
+        <span class="mono last-solve-time" classList={{ bad: isDnf(), good: !isDnf() }}>
+          {isDnf() ? "DNF" : formatMs(props.solve.totalMs)}
+        </span>
+        <span class="muted mono">
+          {formatMs(props.solve.memoMs)} + {formatMs(props.solve.execMs)} · {props.solve.moves.length} moves
+        </span>
+        <A class="primary-link" href={`/solve/${props.solve.id}`}>
+          ▶ Replay it
+        </A>
+      </div>
+
+      <Show when={isDnf()}>
+        <Show
+          when={!cat()}
+          fallback={
+            <div class="last-solve-tagged">
+              <span class="dnf-current" style={{ "--chip": cat()!.color }}>
+                {cat()!.name}
+              </span>
+              <button class="link-btn muted" onClick={() => void app.setDnfCategory(props.solve.id, null)}>
+                change
+              </button>
+            </div>
+          }
+        >
+          <div class="last-solve-ask">
+            <span class="ask-label">Why did it fail?</span>
+            <DnfPicker solveId={props.solve.id} current={props.solve.dnfCategoryId} hotkeys />
+            <span class="muted ask-hint">press 1–9 · or find out in the replay</span>
+          </div>
+        </Show>
+        <SolveNotes solve={props.solve} />
+      </Show>
+    </div>
   );
 }
 
@@ -73,47 +127,31 @@ function TimerInner() {
     });
   });
 
-  const selectedSolve = createMemo(() => {
+  const shownSolve = createMemo(() => {
     const id = app.selectedSolveId();
     return id ? app.solves().find((s) => s.id === id) ?? null : null;
   });
 
+  const running = () => {
+    const p = app.snapshot().phase;
+    return p === "memo" || p === "exec";
+  };
+
   return (
-    <div class="timer-page">
+    <div class="timer-page" classList={{ running: running() }}>
       <ConnectBar />
       <ScrambleView />
       <div class="timer-grid">
         <TimeList />
         <div class="timer-center">
           <TimerDisplay armed={armed()} />
-          <Show when={selectedSolve()}>
-            {(s) => (
-              <>
-                <ReconstructionView
-                  rec={s().reconstruction}
-                  scramble={s().scramble}
-                  moves={s().moves}
-                  compact
-                  title={`${s().result === "dnf" ? "DNF" : formatMs(s().totalMs)} — memo ${formatMs(
-                    s().memoMs,
-                  )} · exec ${formatMs(s().execMs)}`}
-                  feedback={{
-                    confirmed: s().confirmedFindings ?? [],
-                    onToggleFinding: (idx) => {
-                      const cur = new Set(s().confirmedFindings ?? []);
-                      if (cur.has(idx)) cur.delete(idx);
-                      else cur.add(idx);
-                      void app.setSolveFeedback(s().id, { confirmedFindings: [...cur].sort() });
-                    },
-                  }}
-                />
-                <SolveNotes solve={s()} />
-              </>
-            )}
-          </Show>
+          <Show when={!running() && shownSolve()}>{(s) => <LastSolveCard solve={s()} />}</Show>
           <DevPanel />
         </div>
-        <StatsPanel />
+        <div class="timer-side">
+          <DnfSummary />
+          <StatsPanel />
+        </div>
       </div>
     </div>
   );

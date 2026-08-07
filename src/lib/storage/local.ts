@@ -1,4 +1,4 @@
-import type { AlgExecution, Session, SolveRecord, StorageAdapter } from "./types";
+import type { AlgExecution, DnfCategory, Session, SolveRecord, StorageAdapter } from "./types";
 
 /**
  * localStorage adapter: used in dev and as the guest fallback when no
@@ -9,6 +9,7 @@ const KEY = {
   sessions: "bld-timer.sessions",
   solves: "bld-timer.solves",
   executions: "bld-timer.executions",
+  dnfCategories: "bld-timer.dnf-categories",
 };
 
 function read<T>(key: string): T[] {
@@ -56,7 +57,7 @@ export function createLocalStorageAdapter(): StorageAdapter {
       write(KEY.executions, [...existing, ...executions]);
       return { solve, executions };
     },
-    async updateSolveFeedback(id, patch) {
+    async updateSolve(id, patch) {
       write(
         KEY.solves,
         read<SolveRecord>(KEY.solves).map((s) => (s.id === id ? { ...s, ...patch } : s)),
@@ -79,6 +80,31 @@ export function createLocalStorageAdapter(): StorageAdapter {
       write(
         KEY.executions,
         read<AlgExecution>(KEY.executions).filter((e) => e.id !== id),
+      );
+    },
+    async listDnfCategories() {
+      return read<DnfCategory>(KEY.dnfCategories).sort((a, b) => a.sortIndex - b.sortIndex);
+    },
+    async addDnfCategory(cat) {
+      const cats = read<DnfCategory>(KEY.dnfCategories);
+      const created: DnfCategory = { ...cat, id: newId() };
+      write(KEY.dnfCategories, [...cats, created]);
+      return created;
+    },
+    async updateDnfCategory(id, patch) {
+      write(
+        KEY.dnfCategories,
+        read<DnfCategory>(KEY.dnfCategories).map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      );
+    },
+    async deleteDnfCategory(id) {
+      write(
+        KEY.dnfCategories,
+        read<DnfCategory>(KEY.dnfCategories).filter((c) => c.id !== id),
+      );
+      write(
+        KEY.solves,
+        read<SolveRecord>(KEY.solves).map((s) => (s.dnfCategoryId === id ? { ...s, dnfCategoryId: null } : s)),
       );
     },
   };

@@ -20,6 +20,7 @@ export const GET = (event: APIEvent) =>
         scramble: r.scramble,
         moves: r.moves,
         reconstruction: r.reconstruction,
+        dnfCategoryId: r.dnfCategoryId,
         note: r.note,
         confirmedFindings: r.confirmedFindings,
       })),
@@ -49,6 +50,7 @@ export const POST = (event: APIEvent) =>
       scramble: s.scramble,
       moves: s.moves,
       reconstruction: s.reconstruction,
+      dnfCategoryId: s.dnfCategoryId ?? null,
     });
     const execs = (body.executions ?? []).map((e) => ({
       id: newId(),

@@ -67,6 +67,20 @@ export const timerSession = pgTable(
   (t) => [index("timer_session_user_idx").on(t.userId)],
 );
 
+export const dnfCategory = pgTable(
+  "dnf_category",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    color: text("color").notNull(),
+    sortIndex: integer("sort_index").notNull(),
+  },
+  (t) => [index("dnf_category_user_idx").on(t.userId)],
+);
+
 export const solve = pgTable(
   "solve",
   {
@@ -85,6 +99,9 @@ export const solve = pgTable(
     scramble: text("scramble").notNull(),
     moves: jsonb("moves").notNull(),
     reconstruction: jsonb("reconstruction").notNull(),
+    // no FK: deleting a category clears the tag explicitly, so a solve is
+    // never held hostage by its category
+    dnfCategoryId: text("dnf_category_id"),
     note: text("note"),
     confirmedFindings: jsonb("confirmed_findings"),
   },

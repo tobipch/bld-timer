@@ -1,0 +1,126 @@
+import { A, useNavigate, useParams } from "@solidjs/router";
+import { createMemo, createSignal, Show } from "solid-js";
+import { DnfPicker } from "~/components/DnfPicker";
+import { ReconstructionView } from "~/components/ReconstructionView";
+import { SolveNotes } from "~/components/SolveNotes";
+import { SolvePlayer } from "~/components/SolvePlayer";
+import { categoryOf } from "~/lib/dnf";
+import { formatMs } from "~/lib/stats";
+import { useApp } from "~/state/app";
+
+export default function SolvePage() {
+  const app = useApp();
+  const params = useParams();
+  const navigate = useNavigate();
+  const [showEngine, setShowEngine] = createSignal(false);
+
+  const solve = createMemo(() => app.solves().find((s) => s.id === params.id) ?? null);
+  const number = createMemo(() => {
+    const s = solve();
+    if (!s) return null;
+    const idx = app.solves()
+      .filter((x) => x.sessionId === s.sessionId)
+      .sort((a, b) => a.startedAt - b.startedAt)
+      .findIndex((x) => x.id === s.id);
+    return idx >= 0 ? idx + 1 : null;
+  });
+
+  return (
+    <div class="solve-page">
+      <Show
+        when={solve()}
+        fallback={
+          <div class="card">
+            <p class="muted">
+              {app.solves().length === 0 ? "Loading…" : "This solve no longer exists."}{" "}
+              <A href="/">Back to the timer</A>
+            </p>
+          </div>
+        }
+      >
+        {(s) => (
+          <>
+            <div class="card solve-head">
+              <div class="solve-head-left">
+                <A href="/" class="back-link">
+                  ← Timer
+                </A>
+                <h2 class="mono">
+                  <Show when={number()}>{(n) => <span class="muted">#{n()} </span>}</Show>
+                  <span classList={{ bad: s().result === "dnf", good: s().result === "ok" }}>
+                    {s().result === "dnf" ? "DNF" : formatMs(s().totalMs)}
+                  </span>
+                </h2>
+                <span class="muted mono">
+                  {formatMs(s().memoMs)} memo · {formatMs(s().execMs)} exec · {s().moves.length} moves
+                </span>
+              </div>
+              <div class="solve-head-right">
+                <button
+                  onClick={() => void app.setSolveResult(s().id, s().result === "ok" ? "dnf" : "ok")}
+                  title="The cube decides this automatically — override it if the cube was out of sync"
+                >
+                  mark as {s().result === "ok" ? "DNF" : "OK"}
+                </button>
+                <button
+                  class="danger"
+                  onClick={() => {
+                    if (confirm("Delete this solve?")) {
+                      void app.deleteSolve(s().id);
+                      navigate("/");
+                    }
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+              <div class="solve-head-scramble">
+                <span class="muted">scramble</span>
+                <code class="mono">{s().scramble}</code>
+              </div>
+            </div>
+
+            <Show when={s().result === "dnf"}>
+              <div class="card dnf-card">
+                <div class="dnf-card-head">
+                  <h4>Why did it fail?</h4>
+                  <Show when={categoryOf(s(), app.dnfCategories())}>
+                    {(c) => (
+                      <span class="dnf-current" style={{ "--chip": c().color }}>
+                        {c().name}
+                      </span>
+                    )}
+                  </Show>
+                </div>
+                <DnfPicker solveId={s().id} current={s().dnfCategoryId} />
+                <SolveNotes solve={s()} />
+              </div>
+            </Show>
+            <Show when={s().result === "ok"}>
+              <div class="card dnf-card">
+                <SolveNotes solve={s()} />
+              </div>
+            </Show>
+
+            <SolvePlayer solve={s()} />
+
+            <div class="card engine-card">
+              <button class="engine-toggle" onClick={() => setShowEngine((v) => !v)}>
+                {showEngine() ? "▾" : "▸"} Automatic analysis <span class="muted">(experimental — a guess, not a verdict)</span>
+              </button>
+              <Show when={showEngine()}>
+                <ReconstructionView
+                  rec={s().reconstruction}
+                  scramble={s().scramble}
+                  moves={s().moves}
+                  compact
+                  title=""
+                />
+              </Show>
+            </div>
+          </>
+        )}
+      </Show>
+    </div>
+  );
+}

@@ -13,16 +13,18 @@ export function ScrambleView() {
     return snap.follower.display();
   });
 
+  const waitingText = () => {
+    const phase = app.snapshot().phase;
+    if (!app.cube()) return "Connect a cube to start.";
+    if (phase === "awaitSolved") return "Solve the cube to start the next scramble.";
+    if (phase === "memo") return "Memorising — first turn starts the execution.";
+    if (phase === "exec") return "Go. Space stops the timer.";
+    return app.scrambleLoading() ? "Generating scramble…" : "Waiting for scramble…";
+  };
+
   return (
     <div class="scramble card">
-      <Show
-        when={display()}
-        fallback={
-          <span class="muted">
-            {app.scrambleLoading() ? "Generating scramble…" : app.cube() ? "Waiting for scramble…" : "Connect a cube to start."}
-          </span>
-        }
-      >
+      <Show when={display()} fallback={<span class="muted">{waitingText()}</span>}>
         {(d) => (
           <>
             <div class="scramble-tokens">

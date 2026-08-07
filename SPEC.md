@@ -1,10 +1,19 @@
 # BLD Timer — Specification
 
 A speedcubing timer for **3x3 blindfolded**, connected to a smart cube via
-[btcube-web](https://github.com/simonkellly/btcube-web). Its defining feature: it
-**reconstructs every solve** — recognizing each commutator, parity, flip, twist and LTCT you
-execute — and **builds your personal algorithm database automatically from your solves**,
-including how fast you execute each case on average.
+[btcube-web](https://github.com/simonkellly/btcube-web). Its defining feature: **every solve
+can be replayed move by move**, so you can see for yourself exactly where a DNF went wrong —
+and every DNF gets tagged with a reason, so the statistics show both how often you fail and
+what you fail at.
+
+Two things the tool is deliberately careful about:
+
+- **What it shows is measured, not inferred.** The scramble and the timed move stream are
+  known exactly; the replay, the solved-piece curve and the hesitation marks follow from them
+  and nothing else.
+- **Interpretation is optional and clearly labelled.** The reconstruction engine (§3) still
+  parses solves into commutators for the algorithm database and for navigation labels, but it
+  never has the last word on whether a solve was "right". You do.
 
 ---
 
@@ -121,7 +130,8 @@ space-key events.
 
 ## 3. Reconstruction engine
 
-The heart of the app. Pure TypeScript, no UI dependencies, heavily unit-tested.
+Feeds the algorithm database (§4) and supplies navigation labels in the replay. It is an
+aid, never a verdict — where it disagrees with the cuber, the cuber is right. Pure TypeScript, no UI dependencies, heavily unit-tested.
 
 ### 3.1 State tracking
 
@@ -204,12 +214,46 @@ Letter pairs always rendered through the user's letter scheme.
 
 ---
 
+## 4a. Solve review
+
+### The player
+
+Opened from any solve (`/solve/:id`). Built purely from the scramble plus the recorded move
+stream:
+
+- **3D cube** (cubing.js TwistyPlayer) showing the state after the current move, rotated into
+  the user's holding orientation, so the replay looks like the solve felt. Stepping forward
+  animates that single move.
+- **Transport**: start / prev / play-pause / next / end, speed 0.25×–4×, and a *real time*
+  toggle that plays back with the exact inter-move timing recorded by the cube.
+- **Keyboard**: `←` `→` step, `↑` `↓` jump between pauses, `Home` / `End`, `space` plays.
+- **Timeline**: the solved-piece count (0–20) as a curve, with hesitations marked. A drop in
+  the curve, or a long hesitation, is where a solve usually went wrong. Click to seek.
+- **Groups**: moves are split into bursts wherever the hands paused — a method-agnostic
+  stand-in for "one alg". Each burst shows its duration, the pause before it and how many
+  pieces it solved (+2 is a healthy comm; 0 or negative is worth a look).
+- **At this point**: which pieces are still unsolved, by letter in the user's scheme, plus the
+  exact alg that reproduces this state from a solved cube (copyable — put the cube back
+  where it broke and try again).
+
+### DNF categories
+
+Every DNF is tagged with a reason (`Memo lost`, `Edge exec`, `Parity`, …). The list is
+user-editable — rename, recolour, delete, add. Tagging takes one keypress (`1`–`9`) right
+after the solve, which is the only way the numbers stay honest.
+
+---
+
 ## 5. Statistics
 
 Per session and all-time (sessions: simple named lists, default "Session 1", switchable):
 
-- **Time list**: every solve with total / memo / exec, success or DNF, click → full
-  reconstruction detail.
+- **Time list**: every solve with total / memo / exec, success or DNF and its DNF category;
+  one click opens the replay.
+- **Failure analysis**: DNF rate (the number the old dnf-tracker never showed) next to the
+  breakdown by reason — for each category its share *of all DNFs* and *of all solves*, so a
+  rare-but-fatal mistake cannot hide behind a common one. Untagged DNFs are listed with a
+  direct link to their replay.
 - **Time trend**: chart of solve times over time (total, with memo portion visually
   distinguished), plus rolling ao12 line. DNFs marked.
 - **Success rate**: all-time, current session, last 50.

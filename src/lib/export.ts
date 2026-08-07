@@ -9,7 +9,7 @@ import {
   type OrientationMaps,
 } from "./engine/present";
 import { formatMs } from "./stats";
-import type { SolveRecord } from "./storage/types";
+import type { DnfCategory, SolveRecord } from "./storage/types";
 
 /**
  * Markdown export of solves with user feedback — the raw material for
@@ -105,6 +105,7 @@ export function exportSolvesMarkdown(
   solves: SolveRecord[],
   scheme: LetterScheme,
   orientation: string,
+  categories: DnfCategory[] = [],
 ): string {
   const maps = makeOrientationMaps(orientation);
   const def = defaultLetterScheme();
@@ -126,6 +127,8 @@ export function exportSolvesMarkdown(
       `Scramble: \`${s.scramble}\``,
       ``,
     );
+    const cat = categories.find((c) => c.id === s.dnfCategoryId);
+    if (cat) lines.push(`DNF category: **${cat.name}**`, ``);
     if (s.note?.trim()) {
       lines.push(`### User note`, ``, ...s.note.trim().split("\n").map((l) => `> ${l}`), ``);
     }
@@ -165,9 +168,9 @@ export function exportSolvesMarkdown(
   return lines.join("\n");
 }
 
-/** Solves carrying feedback: a note or at least one confirmed finding. */
+/** Solves carrying feedback: a note, a DNF category or a confirmed finding. */
 export function solvesWithFeedback(solves: SolveRecord[]): SolveRecord[] {
   return solves
-    .filter((s) => s.note?.trim() || (s.confirmedFindings?.length ?? 0) > 0)
+    .filter((s) => s.note?.trim() || s.dnfCategoryId || (s.confirmedFindings?.length ?? 0) > 0)
     .sort((a, b) => b.startedAt - a.startedAt);
 }
