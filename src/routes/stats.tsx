@@ -1,20 +1,21 @@
-import { A } from "@solidjs/router";
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import type uPlotType from "uplot";
-import { categoryIdsOf, dnfBreakdown, formatPct } from "~/lib/dnf";
-import { exportSolvesMarkdown, solvesWithFeedback } from "~/lib/export";
-import { aoN, bestAoN, bestSingle, boN, formatAvg, formatMs, meanSplit, successRate } from "~/lib/stats";
+import { MODE_LABEL } from "~/lib/scramble";
+import {
+  aoN,
+  bestAoN,
+  bestSingle,
+  formatAvg,
+  formatPct,
+  rollingAoN,
+  scoresOf,
+  successRate,
+} from "~/lib/stats";
 import type { SolveRecord } from "~/lib/storage/types";
-import { settings, setSettings } from "~/state/settings";
+import { settings } from "~/state/settings";
 import { useApp } from "~/state/app";
 
-function rollingAo12(solves: SolveRecord[]): (number | null)[] {
-  return solves.map((_, i) => {
-    if (i + 1 < 12) return null;
-    const a = aoN(solves.slice(0, i + 1), 12);
-    return a.kind === "time" ? a.ms / 1000 : null;
-  });
-}
+const pct = (v: number | null) => (v === null ? null : v * 100);
 
 function TrendChart(props: { solves: SolveRecord[] }) {
   let el!: HTMLDivElement;
@@ -23,13 +24,12 @@ function TrendChart(props: { solves: SolveRecord[] }) {
   let disposed = false;
 
   const data = createMemo(() => {
-    const xs = props.solves;
-    const idx = xs.map((_, i) => i + 1);
-    const ok = xs.map((s) => (s.result === "ok" ? s.totalMs / 1000 : null));
-    const dnf = xs.map((s) => (s.result === "dnf" ? s.totalMs / 1000 : null));
-    const memo = xs.map((s) => (s.execMs > 0 ? s.memoMs / 1000 : null));
-    const ao12 = rollingAo12(xs);
-    return [idx, ok, dnf, memo, ao12] as uPlotType.AlignedData;
+    const values = scoresOf(props.solves, settings.flow);
+    const idx = values.map((_, i) => i + 1);
+    const single = values.map((v) => v * 100);
+    const ao5 = rollingAoN(values, 5).map(pct);
+    const ao12 = rollingAoN(values, 12).map(pct);
+    return [idx, single, ao5, ao12] as uPlotType.AlignedData;
   });
 
   const css = (name: string) =>
@@ -62,49 +62,30 @@ function TrendChart(props: { solves: SolveRecord[] }) {
       setFailed(true);
       return;
     }
+    const value = (_u: uPlotType, v: number | null) => (v == null ? "" : `${v.toFixed(1)}%`);
     const opts: uPlotType.Options = {
       width: el.clientWidth || 800,
       height: 300,
-      scales: { x: { time: false } },
+      scales: { x: { time: false }, y: { range: [0, 100] } },
       axes: [
         { stroke: css("--text-dim"), grid: { stroke: css("--border") } },
         {
           stroke: css("--text-dim"),
           grid: { stroke: css("--border") },
-          values: (_u, ticks) => ticks.map((v) => `${v}s`),
+          values: (_u, ticks) => ticks.map((v) => `${v}%`),
         },
       ],
       series: [
         { label: "#" },
         {
-          label: "time",
+          label: "flow",
           stroke: css("--accent"),
-          width: 2,
-          points: { show: true, size: 5 },
-          value: (_u, v) => (v == null ? "" : formatMs(v * 1000)),
-        },
-        {
-          label: "DNF",
-          stroke: css("--bad"),
-          paths: () => null,
-          points: { show: true, size: 6 },
-          value: (_u, v) => (v == null ? "" : `DNF ${formatMs(v * 1000)}`),
-        },
-        {
-          label: "memo",
-          stroke: css("--memo"),
           width: 1,
-          dash: [4, 4],
-          points: { show: false },
-          value: (_u, v) => (v == null ? "" : formatMs(v * 1000)),
+          points: { show: true, size: 4 },
+          value,
         },
-        {
-          label: "ao12",
-          stroke: css("--good"),
-          width: 2,
-          points: { show: false },
-          value: (_u, v) => (v == null ? "" : formatMs(v * 1000)),
-        },
+        { label: "ao5", stroke: css("--warn"), width: 2, points: { show: false }, value },
+        { label: "ao12", stroke: css("--good"), width: 2, points: { show: false }, value },
       ],
     };
     if (disposed) return;
@@ -125,253 +106,89 @@ function TrendChart(props: { solves: SolveRecord[] }) {
   );
 }
 
-function StatRow(props: { label: string; session: string; allTime: string }) {
+function StatRow(props: { label: string; session: string; mode: string }) {
   return (
     <tr>
       <td class="muted">{props.label}</td>
       <td class="mono">{props.session}</td>
-      <td class="mono">{props.allTime}</td>
+      <td class="mono">{props.mode}</td>
     </tr>
-  );
-}
-
-/** Rate, split by reason — the two numbers the old DNF tracker never had together. */
-function FailureAnalysis(props: { solves: SolveRecord[] }) {
-  const app = useApp();
-  const stats = createMemo(() => dnfBreakdown(props.solves, app.dnfCategories()));
-  const untagged = createMemo(() =>
-    props.solves
-      .filter((s) => s.result === "dnf" && categoryIdsOf(s).length === 0)
-      .sort((a, b) => b.startedAt - a.startedAt),
-  );
-
-  return (
-    <div class="card failure-card">
-      <h3>Failure analysis</h3>
-      <Show when={stats().total > 0} fallback={<span class="muted">No solves yet.</span>}>
-        <div class="failure-top">
-          <div class="failure-big">
-            <span class="failure-value mono">{formatPct(stats().dnfRate)}</span>
-            <span class="muted">DNF rate</span>
-          </div>
-          <div class="failure-big">
-            <span class="failure-value mono good">{formatPct(stats().successRate)}</span>
-            <span class="muted">success</span>
-          </div>
-          <div class="failure-big">
-            <span class="failure-value mono">
-              {stats().dnf}
-              <span class="muted">/{stats().total}</span>
-            </span>
-            <span class="muted">DNFs / solves</span>
-          </div>
-        </div>
-
-        <div class="dnf-bar big" title="every solve, coloured by outcome">
-          <For each={stats().rows}>
-            {(r) => (
-              <span
-                class="dnf-bar-seg"
-                style={{ width: `${r.barShare * 100}%`, background: r.category?.color ?? "var(--border)" }}
-                title={`${r.category?.name ?? "untagged"}: ${r.count}`}
-              />
-            )}
-          </For>
-          <span class="dnf-bar-seg ok" style={{ width: `${(stats().ok / stats().total) * 100}%` }} />
-        </div>
-
-        <Show when={stats().dnf > 0}>
-          <table class="stats-table failure-table">
-            <thead>
-              <tr>
-                <th>reason</th>
-                <th>DNFs</th>
-                <th>of all DNFs</th>
-                <th>of all solves</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              <For each={stats().rows}>
-                {(r) => (
-                  <tr>
-                    <td>
-                      <span class="cat-dot" style={{ background: r.category?.color ?? "var(--border)" }} />
-                      {r.category?.name ?? <span class="muted">untagged</span>}
-                    </td>
-                    <td class="mono">{r.count}</td>
-                    <td class="mono">{formatPct(r.ofDnf)}</td>
-                    <td class="mono">{formatPct(r.ofAll)}</td>
-                    <td class="failure-spark">
-                      <span
-                        style={{
-                          width: `${r.ofDnf * 100}%`,
-                          background: r.category?.color ?? "var(--border)",
-                        }}
-                      />
-                    </td>
-                  </tr>
-                )}
-              </For>
-            </tbody>
-          </table>
-          <Show when={stats().multiTagged}>
-            <p class="muted table-note">
-              A DNF can carry several reasons, so "of all DNFs" adds up to more than 100%.
-            </p>
-          </Show>
-        </Show>
-
-        <Show when={untagged().length > 0}>
-          <div class="untagged-row">
-            <span class="warn">{untagged().length} DNF(s) without a reason</span>
-            <For each={untagged().slice(0, 8)}>
-              {(s) => (
-                <A class="untagged-link mono" href={`/solve/${s.id}`}>
-                  {new Date(s.startedAt).toLocaleDateString()} ▶
-                </A>
-              )}
-            </For>
-          </div>
-        </Show>
-      </Show>
-    </div>
-  );
-}
-
-function CategoryManager() {
-  const app = useApp();
-  const [name, setName] = createSignal("");
-
-  return (
-    <div class="card cat-manager">
-      <h3>DNF categories</h3>
-      <ul class="cat-list">
-        <For each={app.dnfCategories()}>
-          {(c) => (
-            <li>
-              <input
-                type="color"
-                value={c.color}
-                onChange={(e) => void app.updateDnfCategory(c.id, { color: e.currentTarget.value })}
-              />
-              <input
-                class="cat-name"
-                value={c.name}
-                onChange={(e) => {
-                  const v = e.currentTarget.value.trim();
-                  if (v) void app.updateDnfCategory(c.id, { name: v });
-                  else e.currentTarget.value = c.name;
-                }}
-              />
-              <button
-                class="danger"
-                title="Delete — solves tagged with it become untagged"
-                onClick={() => {
-                  if (confirm(`Delete "${c.name}"? Solves tagged with it lose their tag.`))
-                    void app.deleteDnfCategory(c.id);
-                }}
-              >
-                ×
-              </button>
-            </li>
-          )}
-        </For>
-      </ul>
-      <form
-        class="cat-add"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const v = name().trim();
-          if (!v) return;
-          void app.addDnfCategory(v, "#4da3ff");
-          setName("");
-        }}
-      >
-        <input placeholder="new category" value={name()} onInput={(e) => setName(e.currentTarget.value)} />
-        <button type="submit">Add</button>
-      </form>
-    </div>
   );
 }
 
 export default function StatsPage() {
   const app = useApp();
-  const [newName, setNewName] = createSignal("");
-  const [scope, setScope] = createSignal<"session" | "all">("session");
+  const [scope, setScope] = createSignal<"session" | "mode">("session");
 
-  const sessionSolves = app.sessionSolves;
-  const allSolves = createMemo(() => [...app.solves()].sort((a, b) => a.startedAt - b.startedAt));
-  const scoped = createMemo(() => (scope() === "session" ? sessionSolves() : allSolves()));
+  const scoped = createMemo(() => (scope() === "session" ? app.sessionSolves() : app.modeSolves()));
+  const scopedValues = createMemo(() => scoresOf(scoped(), settings.flow));
 
-  const pct = (xs: SolveRecord[]) => {
-    const r = successRate(xs);
-    return r === null ? "—" : `${Math.round(r * 100)}%`;
-  };
-  const splitStr = (xs: SolveRecord[]) => {
-    const s = meanSplit(xs);
-    return s ? `${formatMs(s.memo)} / ${formatMs(s.exec)}` : "—";
-  };
+  const sessionValues = createMemo(() => scoresOf(app.sessionSolves(), settings.flow));
+  const modeValues = createMemo(() => scoresOf(app.modeSolves(), settings.flow));
 
-  const exportMd = () => {
-    const picked = solvesWithFeedback(app.solves());
-    const md = exportSolvesMarkdown(picked, settings.letterScheme, settings.orientation, app.dnfCategories());
-    const blob = new Blob([md], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `bld-solves-${new Date().toISOString().slice(0, 10)}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const both = (f: (values: number[]) => string) => ({
+    session: f(sessionValues()),
+    mode: f(modeValues()),
+  });
+
+  const avg = (n: number) => both((values) => formatAvg(aoN(values, n)));
+  const best = (n: number) => both((values) => formatAvg(bestAoN(values, n)));
 
   return (
     <div class="stats-page">
       <div class="card stats-header">
-        <label>
-          Session{" "}
-          <select
-            value={settings.sessionId ?? ""}
-            onChange={(e) => setSettings("sessionId", e.currentTarget.value)}
-          >
-            <For each={app.sessions()}>{(s) => <option value={s.id}>{s.name}</option>}</For>
-          </select>
-        </label>
+        <span class="stats-title">
+          {MODE_LABEL[app.mode()]} · {app.currentSession()?.name ?? "—"}
+        </span>
         <div class="scope-toggle">
           <button classList={{ active: scope() === "session" }} onClick={() => setScope("session")}>
             this session
           </button>
-          <button classList={{ active: scope() === "all" }} onClick={() => setScope("all")}>
-            all time
+          <button classList={{ active: scope() === "mode" }} onClick={() => setScope("mode")}>
+            all {MODE_LABEL[app.mode()].toLowerCase()}
           </button>
         </div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (newName().trim()) {
-              void app.addSession(newName().trim());
-              setNewName("");
-            }
-          }}
-        >
-          <input
-            placeholder="new session name"
-            value={newName()}
-            onInput={(e) => setNewName(e.currentTarget.value)}
-          />
-          <button type="submit">Add</button>
-        </form>
-        <button onClick={exportMd} title="Markdown export of every solve with a note or a DNF category">
-          Export notes
-        </button>
+        <span class="muted">Sessions are switched on the timer page.</span>
       </div>
 
-      <FailureAnalysis solves={scoped()} />
+      <div class="card">
+        <h3>Success</h3>
+        <div class="stat-tiles">
+          <div class="stat-tile">
+            <span class="stat-value mono good">{formatPct(successRate(scoped()))}</span>
+            <span class="muted">success rate</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value mono">
+              {scoped().filter((s) => s.result === "ok").length}
+              <span class="muted">/{scoped().length}</span>
+            </span>
+            <span class="muted">solved / attempts</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value mono">{formatAvg(aoN(scopedValues(), 5))}</span>
+            <span class="muted">current ao5</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value mono">{formatAvg(bestSingle(scopedValues()))}</span>
+            <span class="muted">best single</span>
+          </div>
+        </div>
+        <p class="muted table-note">
+          Flow and success are two separate numbers on purpose: a failed attempt still scores the
+          flow of the execution it did have, so the averages say how fluently you turn and the
+          success rate says how often it worked.
+        </p>
+      </div>
 
       <div class="card">
-        <h3>Time trend <span class="muted">({scope() === "session" ? "session" : "all time"})</span></h3>
-        <Show when={scoped().length > 0} fallback={<span class="muted">No solves yet.</span>}>
+        <h3>
+          Flow over time{" "}
+          <span class="muted">({scope() === "session" ? "this session" : "all sessions"})</span>
+        </h3>
+        <Show when={scoped().length > 0} fallback={<span class="muted">Nothing yet.</span>}>
           <TrendChart solves={scoped()} />
+          <p class="muted table-note">Every attempt, with the rolling ao5 and ao12.</p>
         </Show>
       </div>
 
@@ -382,52 +199,32 @@ export default function StatsPage() {
             <tr>
               <th />
               <th>session</th>
-              <th>all time</th>
+              <th>all {MODE_LABEL[app.mode()].toLowerCase()}</th>
             </tr>
           </thead>
           <tbody>
-            <StatRow label="solves" session={`${sessionSolves().length}`} allTime={`${allSolves().length}`} />
-            <StatRow label="success rate" session={pct(sessionSolves())} allTime={pct(allSolves())} />
             <StatRow
-              label="best single"
-              session={formatAvg(bestSingle(sessionSolves()))}
-              allTime={formatAvg(bestSingle(allSolves()))}
+              label="attempts"
+              session={`${app.sessionSolves().length}`}
+              mode={`${app.modeSolves().length}`}
             />
             <StatRow
-              label="bo5 (current)"
-              session={formatAvg(boN(sessionSolves(), 5))}
-              allTime={formatAvg(boN(allSolves(), 5))}
+              label="success rate"
+              session={formatPct(successRate(app.sessionSolves()))}
+              mode={formatPct(successRate(app.modeSolves()))}
             />
-            <StatRow
-              label="ao5 (current)"
-              session={formatAvg(aoN(sessionSolves(), 5))}
-              allTime={formatAvg(aoN(allSolves(), 5))}
-            />
-            <StatRow
-              label="ao5 (best)"
-              session={formatAvg(bestAoN(sessionSolves(), 5))}
-              allTime={formatAvg(bestAoN(allSolves(), 5))}
-            />
-            <StatRow
-              label="ao12 (current)"
-              session={formatAvg(aoN(sessionSolves(), 12))}
-              allTime={formatAvg(aoN(allSolves(), 12))}
-            />
-            <StatRow
-              label="ao12 (best)"
-              session={formatAvg(bestAoN(sessionSolves(), 12))}
-              allTime={formatAvg(bestAoN(allSolves(), 12))}
-            />
-            <StatRow
-              label="mean memo / exec"
-              session={splitStr(sessionSolves())}
-              allTime={splitStr(allSolves())}
-            />
+            <StatRow label="best single" {...both((v) => formatAvg(bestSingle(v)))} />
+            <StatRow label="ao5 (current)" {...avg(5)} />
+            <StatRow label="ao12 (current)" {...avg(12)} />
+            <StatRow label="ao50 (current)" {...avg(50)} />
+            <StatRow label="ao100 (current)" {...avg(100)} />
+            <StatRow label="ao5 (best)" {...best(5)} />
+            <StatRow label="ao12 (best)" {...best(12)} />
+            <StatRow label="ao50 (best)" {...best(50)} />
+            <StatRow label="ao100 (best)" {...best(100)} />
           </tbody>
         </table>
       </div>
-
-      <CategoryManager />
     </div>
   );
 }

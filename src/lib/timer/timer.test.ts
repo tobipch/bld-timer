@@ -1,13 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { algToOuterMoves, invertOuterMoves, outerMoveToString } from "../cube/alg";
+import { algToOuterMoves, invertOuterMoves } from "../cube/alg";
 import type { OuterMove } from "../cube/state";
-import { buffersFromNames } from "../engine/classify";
-import { defaultBuffers } from "../cube/speffz";
 import { ScrambleFollower } from "./follow";
 import { TimerMachine } from "./machine";
-
-const bufs = defaultBuffers();
-const buffers = buffersFromNames(bufs.corners, bufs.edges);
 
 describe("ScrambleFollower", () => {
   it("tracks progress through a plain scramble", () => {
@@ -97,7 +92,7 @@ describe("ScrambleFollower", () => {
 
 describe("TimerMachine", () => {
   function readyMachine(scramble = "R U") {
-    const m = new TimerMachine(buffers);
+    const m = new TimerMachine();
     m.connect();
     m.setScramble(scramble);
     for (const mv of algToOuterMoves(scramble)) m.onCubeMove(mv, 0, 0);
@@ -105,58 +100,71 @@ describe("TimerMachine", () => {
     return m;
   }
 
-  it("runs a successful solve through memo and exec", () => {
+  it("starts the attempt with the first turn, not with a key", () => {
     const m = readyMachine("R U");
-    m.trigger(1000); // memo starts
-    expect(m.phase).toBe("memo");
-    // undo the scramble = solve it (U' R')
     const solution = invertOuterMoves(algToOuterMoves("R U"));
     m.onCubeMove(solution[0], 6000, 6000);
-    expect(m.phase).toBe("exec");
+    expect(m.phase).toBe("solving");
     m.onCubeMove(solution[1], 6400, 6400);
-    expect(m.phase).toBe("exec"); // solved but the timer keeps running
-    m.trigger(7000);
+    expect(m.phase).toBe("solving"); // solved, but only space ends the attempt
+    m.trigger(9000);
     expect(m.phase).toBe("done");
     const o = m.lastOutcome!;
     expect(o.result).toBe("ok");
-    expect(o.memoMs).toBe(5000);
-    expect(o.execMs).toBe(1000);
-    expect(o.totalMs).toBe(6000);
+    expect(o.startedAt).toBe(6000);
+    // the wait before the stop key is not part of the execution
+    expect(o.execMs).toBe(400);
+    expect(o.moves.map((x) => x.t)).toEqual([6000, 6400]);
   });
 
-  it("space during exec with an unsolved cube is a DNF", () => {
+  it("space with an unsolved cube is a DNF, with its execution kept", () => {
     const m = readyMachine("R U");
-    m.trigger(1000);
     m.onCubeMove({ face: "U", amount: 3 }, 2000, 2000); // only half the solution
     m.trigger(3000);
-    expect(m.lastOutcome!.result).toBe("dnf");
-    expect(m.lastOutcome!.reconstruction.solved).toBe(false);
+    const o = m.lastOutcome!;
+    expect(o.result).toBe("dnf");
+    expect(o.moves).toHaveLength(1);
   });
 
-  it("space during memo is a DNF without execution", () => {
+  it("space before the first turn gives up the attempt", () => {
     const m = readyMachine();
-    m.trigger(1000);
     m.trigger(4000);
     const o = m.lastOutcome!;
     expect(o.result).toBe("dnf");
-    expect(o.memoMs).toBe(3000);
     expect(o.execMs).toBe(0);
     expect(o.moves).toHaveLength(0);
   });
 
-  it("turning the cube in ready drops back to scrambling", () => {
-    const m = readyMachine();
+  it("discards an attempt without recording it", () => {
+    const m = readyMachine("R U");
+    const before = m.lastOutcome;
+    m.onCubeMove({ face: "F", amount: 1 }, 1000, 1000);
+    expect(m.phase).toBe("solving");
+    m.discard();
+    expect(m.lastOutcome).toBe(before);
+    // the cube is not solved any more, so it has to be put back first
+    expect(m.phase).toBe("awaitSolved");
+  });
+
+  it("falls back to the local clock when the cube reports none", () => {
+    const m = readyMachine("R U");
+    m.onCubeMove({ face: "U", amount: 3 }, 1000);
+    m.onCubeMove({ face: "R", amount: 3 }, 1500, 9999);
+    m.trigger(2000);
+    expect(m.lastOutcome!.moves.map((x) => x.t)).toEqual([1000, 1500]);
+  });
+
+  it("turning the cube while scrambling still shows corrections", () => {
+    const m = new TimerMachine();
+    m.connect();
+    m.setScramble("R U");
     m.onCubeMove({ face: "F", amount: 1 }, 0, 0);
     expect(m.phase).toBe("scrambling");
     expect(m.snapshot().follower!.display().corrections).toEqual(["F'"]);
-    m.onCubeMove({ face: "F", amount: 3 }, 0, 0);
-    // undoing the stray move re-arms ready
-    expect(m.phase).toBe("ready");
   });
 
-  it("after a DNF the next solve waits for the cube to be solved again", () => {
+  it("after a DNF the next attempt waits for the cube to be solved again", () => {
     const m = readyMachine("R U");
-    m.trigger(1000);
     m.onCubeMove({ face: "U", amount: 3 }, 2000, 2000);
     m.trigger(3000);
     m.setScramble("F2 D");
@@ -165,6 +173,15 @@ describe("TimerMachine", () => {
     m.onCubeMove({ face: "R", amount: 3 }, 4000, 4000); // now physically solved
     expect(m.phase).toBe("scrambling");
     expect(m.snapshot().scramble).toBe("F2 D");
+  });
+
+  it("after a success the next scramble starts immediately", () => {
+    const m = readyMachine("R U");
+    for (const mv of invertOuterMoves(algToOuterMoves("R U"))) m.onCubeMove(mv, 2000, 2000);
+    m.trigger(3000);
+    m.setScramble("L D2");
+    m.nextSolve();
+    expect(m.phase).toBe("scrambling");
   });
 
   it("four U turns reset the tracking to a solved cube", () => {
@@ -228,31 +245,20 @@ describe("TimerMachine", () => {
     }
   });
 
-  it("ignores the gesture while the timer runs", () => {
+  it("ignores the gesture once the attempt is under way", () => {
     const m = readyMachine("U R");
-    m.trigger(1000);
+    // a real execution first, so the four U turns are no longer all there is
+    for (const mv of algToOuterMoves("F B L2 R")) m.onCubeMove(mv, 1000, 1000);
     for (let i = 0; i < 4; i++) m.onCubeMove({ face: "U", amount: 1 }, 2000 + i, 2000 + i);
-    expect(m.phase).toBe("exec");
-    expect(m.snapshot().moveCount).toBe(4);
+    expect(m.phase).toBe("solving");
+    expect(m.snapshot().moveCount).toBe(8);
   });
 
-  it("knows the turns leading from a solved cube to the current one", () => {
+  it("takes the gesture from an attempt that is nothing but the gesture", () => {
     const m = readyMachine("U R");
-    expect(m.movesSinceSolved().map(outerMoveToString)).toEqual(["U", "R"]);
-    // undoing them empties the path again rather than letting it grow
-    m.onCubeMove({ face: "R", amount: 3 }, 0, 0);
-    m.onCubeMove({ face: "U", amount: 3 }, 0, 0);
+    for (let i = 0; i < 4; i++) m.onCubeMove({ face: "D", amount: 1 }, 1000 + i, 1000 + i);
     expect(m.cubeIsSolved).toBe(true);
-    expect(m.movesSinceSolved()).toEqual([]);
-  });
-
-  it("after a success the next scramble starts immediately", () => {
-    const m = readyMachine("R U");
-    m.trigger(1000);
-    for (const mv of invertOuterMoves(algToOuterMoves("R U"))) m.onCubeMove(mv, 2000, 2000);
-    m.trigger(3000);
-    m.setScramble("L D2");
-    m.nextSolve();
     expect(m.phase).toBe("scrambling");
+    expect(m.snapshot().moveCount).toBe(0);
   });
 });

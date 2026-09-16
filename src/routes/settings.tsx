@@ -1,78 +1,67 @@
-import { Show } from "solid-js";
-import { LetterSchemeCube } from "~/components/LetterSchemeCube";
-import { ProfileEditor } from "~/components/ProfileEditor";
-import { resetLetterScheme, settings, setSettings } from "~/state/settings";
+import { DEFAULT_FLOW_OPTIONS } from "~/lib/flow";
+import { settings, setSettings } from "~/state/settings";
 
 export default function SettingsPage() {
+  const flow = () => settings.flow;
+
   return (
     <div class="settings-page">
       <div class="card">
-        <h3>Your method</h3>
+        <h3>What counts as a pause</h3>
         <p class="muted">
-          Drives the letter scheme, the orientation of the replay and the optional automatic analysis.
+          A gap between two turns counts as standing still once it is longer than{" "}
+          <b>{flow().factor}×</b> your own median gap in that attempt, but never below{" "}
+          <b>{flow().floorMs} ms</b>. Only the part above that line is counted, so a gap just over
+          it costs just over nothing. Changing this re-scores the whole history — nothing is stored
+          with an old setting baked in.
         </p>
-        <ProfileEditor />
-        <Show when={settings.profile.onboarded}>
-          <button onClick={() => setSettings("profile", "onboarded", false)}>
-            Re-run onboarding
-          </button>
-        </Show>
-      </div>
-
-      <div class="card">
-        <h3>Timer</h3>
         <div class="settings-rows">
           <label>
-            Space hold time before release starts the timer (ms, 0 = instant)
+            Never call a gap shorter than this a pause (ms)
             <input
               type="number"
               min="0"
-              step="50"
-              value={settings.holdMs}
-              onInput={(e) => setSettings("holdMs", Math.max(0, Number(e.currentTarget.value) || 0))}
+              step="25"
+              value={flow().floorMs}
+              onInput={(e) =>
+                setSettings("flow", "floorMs", Math.max(0, Number(e.currentTarget.value) || 0))
+              }
             />
           </label>
           <label>
+            Multiple of your own median gap
             <input
-              type="checkbox"
-              checked={settings.showRunningTime}
-              onChange={(e) => setSettings("showRunningTime", e.currentTarget.checked)}
+              type="number"
+              min="1"
+              step="0.25"
+              value={flow().factor}
+              onInput={(e) =>
+                setSettings("flow", "factor", Math.max(1, Number(e.currentTarget.value) || 1))
+              }
             />
-            Show running time
           </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={settings.showTimeDuringMemo}
-              onChange={(e) => setSettings("showTimeDuringMemo", e.currentTarget.checked)}
-            />
-            Show time during memo
-          </label>
+          <div>
+            <button onClick={() => setSettings("flow", { ...DEFAULT_FLOW_OPTIONS })}>
+              Back to {DEFAULT_FLOW_OPTIONS.factor}× / {DEFAULT_FLOW_OPTIONS.floorMs} ms
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Display</h3>
+        <div class="settings-rows">
           <label>
             Theme
             <select
               value={settings.theme}
-              onChange={(e) => setSettings("theme", e.currentTarget.value as "dark" | "light")}
+              onChange={(e) => setSettings("theme", e.currentTarget.value === "light" ? "light" : "dark")}
             >
               <option value="dark">dark</option>
               <option value="light">light</option>
             </select>
           </label>
         </div>
-      </div>
-
-      <div class="card">
-        <h3>Letter scheme</h3>
-        <p class="muted">
-          Speffz by default — edit any sticker directly on the cube (corners in the corners, edges on
-          the edges). Colors follow your color scheme.
-        </p>
-        <LetterSchemeCube />
-        <button onClick={() => resetLetterScheme()}>Reset to Speffz</button>
-        <p class="muted small-note">
-          Derived orientation (from your color scheme):{" "}
-          <span class="mono">{settings.orientation || "(none — white top, green front)"}</span>
-        </p>
       </div>
     </div>
   );

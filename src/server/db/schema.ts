@@ -63,22 +63,10 @@ export const timerSession = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    // "full" | "edges" | "corners"
+    mode: text("mode").notNull().default("full"),
   },
   (t) => [index("timer_session_user_idx").on(t.userId)],
-);
-
-export const dnfCategory = pgTable(
-  "dnf_category",
-  {
-    id: text("id").primaryKey(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    color: text("color").notNull(),
-    sortIndex: integer("sort_index").notNull(),
-  },
-  (t) => [index("dnf_category_user_idx").on(t.userId)],
 );
 
 export const solve = pgTable(
@@ -93,38 +81,9 @@ export const solve = pgTable(
       .references(() => timerSession.id, { onDelete: "cascade" }),
     startedAt: bigint("started_at", { mode: "number" }).notNull(),
     result: text("result").notNull(), // "ok" | "dnf"
-    totalMs: integer("total_ms").notNull(),
-    memoMs: integer("memo_ms").notNull(),
     execMs: integer("exec_ms").notNull(),
     scramble: text("scramble").notNull(),
     moves: jsonb("moves").notNull(),
-    reconstruction: jsonb("reconstruction").notNull(),
-    // no FK: deleting a category clears the tag explicitly, so a solve is
-    // never held hostage by its category
-    dnfCategoryIds: jsonb("dnf_category_ids").$type<string[]>(),
-    note: text("note"),
-    confirmedFindings: jsonb("confirmed_findings"),
   },
   (t) => [index("solve_user_idx").on(t.userId), index("solve_session_idx").on(t.sessionId)],
-);
-
-export const algExecution = pgTable(
-  "alg_execution",
-  {
-    id: text("id").primaryKey(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    solveId: text("solve_id")
-      .notNull()
-      .references(() => solve.id, { onDelete: "cascade" }),
-    sessionId: text("session_id").notNull(),
-    at: bigint("at", { mode: "number" }).notNull(),
-    caseKey: text("case_key").notNull(),
-    primitive: jsonb("primitive").notNull(),
-    moves: text("moves").notNull(),
-    execMs: integer("exec_ms").notNull(),
-    recogMs: integer("recog_ms").notNull(),
-  },
-  (t) => [index("alg_execution_user_idx").on(t.userId), index("alg_execution_case_idx").on(t.userId, t.caseKey)],
 );

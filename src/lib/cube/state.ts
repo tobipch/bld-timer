@@ -28,10 +28,6 @@ export function solvedState(): CubeState {
   };
 }
 
-export function cloneState(s: CubeState): CubeState {
-  return { cp: [...s.cp], co: [...s.co], ep: [...s.ep], eo: [...s.eo] };
-}
-
 export function applyStep(s: CubeState, step: PermStep): CubeState {
   const cp = new Array<number>(8);
   const co = new Array<number>(8);
@@ -75,89 +71,3 @@ export function isSolved(s: CubeState): boolean {
 }
 
 const SOLVED = solvedState();
-
-/**
- * The transformation performed between state `a` and the later state `b`,
- * expressed in slot space: content of slot u moved to slot v=goesTo, picking
- * up `twist`/`flip` orientation. This is independent of the scramble — a
- * commutator produces the same diff wherever it is executed.
- *
- * cornerSrc[v] = u (slot v's content came from slot u);
- * cornerTwist[v] = orientation added on the way.
- */
-export interface StateDiff {
-  cornerSrc: number[];
-  cornerTwist: number[];
-  edgeSrc: number[];
-  edgeFlip: number[];
-}
-
-export function diffStates(a: CubeState, b: CubeState): StateDiff {
-  // Where is piece p in a? slotOfPieceA[p]
-  const cornerSlotA = new Array<number>(8);
-  const edgeSlotA = new Array<number>(12);
-  for (let i = 0; i < 8; i++) cornerSlotA[a.cp[i]] = i;
-  for (let i = 0; i < 12; i++) edgeSlotA[a.ep[i]] = i;
-
-  const cornerSrc = new Array<number>(8);
-  const cornerTwist = new Array<number>(8);
-  for (let v = 0; v < 8; v++) {
-    const u = cornerSlotA[b.cp[v]];
-    cornerSrc[v] = u;
-    cornerTwist[v] = (b.co[v] - a.co[u] + 3) % 3;
-  }
-  const edgeSrc = new Array<number>(12);
-  const edgeFlip = new Array<number>(12);
-  for (let v = 0; v < 12; v++) {
-    const u = edgeSlotA[b.ep[v]];
-    edgeSrc[v] = u;
-    edgeFlip[v] = (b.eo[v] - a.eo[u] + 2) % 2;
-  }
-  return { cornerSrc, cornerTwist, edgeSrc, edgeFlip };
-}
-
-/*
- * Transformations: a CubeState can also be read as "what a move sequence
- * does", i.e. the state it produces from solved. Diffs are position-
- * independent, so these compose like group elements — which lets the
- * diagnosis solve for "what should this step have been".
- */
-
-/** The transformation performed between state a and the later state b. */
-export function transformBetween(a: CubeState, b: CubeState): CubeState {
-  const d = diffStates(a, b);
-  return { cp: d.cornerSrc, co: d.cornerTwist, ep: d.edgeSrc, eo: d.edgeFlip };
-}
-
-/** Apply transformation a, then b. */
-export function composeTransforms(a: CubeState, b: CubeState): CubeState {
-  const cp = new Array<number>(8);
-  const co = new Array<number>(8);
-  const ep = new Array<number>(12);
-  const eo = new Array<number>(12);
-  for (let v = 0; v < 8; v++) {
-    cp[v] = a.cp[b.cp[v]];
-    co[v] = (a.co[b.cp[v]] + b.co[v]) % 3;
-  }
-  for (let v = 0; v < 12; v++) {
-    ep[v] = a.ep[b.ep[v]];
-    eo[v] = (a.eo[b.ep[v]] + b.eo[v]) % 2;
-  }
-  return { cp, co, ep, eo };
-}
-
-export function invertTransform(s: CubeState): CubeState {
-  const cp = new Array<number>(8);
-  const co = new Array<number>(8);
-  const ep = new Array<number>(12);
-  const eo = new Array<number>(12);
-  for (let v = 0; v < 8; v++) {
-    cp[s.cp[v]] = v;
-    co[s.cp[v]] = (3 - s.co[v]) % 3;
-  }
-  for (let v = 0; v < 12; v++) {
-    ep[s.ep[v]] = v;
-    eo[s.ep[v]] = s.eo[v]; // flips are self-inverse
-  }
-  return { cp, co, ep, eo };
-}

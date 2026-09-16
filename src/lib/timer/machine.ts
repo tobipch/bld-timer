@@ -1,53 +1,51 @@
 import { applyMove, isSolved, solvedState, type CubeState, type OuterMove } from "../cube/state";
 import type { Face } from "../cube/geometry";
-import { reconstructSolve, type Reconstruction, type TimedMove } from "../engine/reconstruct";
-import type { BufferRefs } from "../engine/classify";
-import type { JudgeContext } from "../engine/judge";
 import { ScrambleFollower } from "./follow";
 
 /**
  * The solve flow state machine. Framework-agnostic and fully testable; the
  * UI subscribes to snapshots.
  *
- *   disconnected -> scrambling -> ready -> memo -> exec -> done
- *                      ^  ^                  |              |
- *                      |  '-- turn in ready  '-- space=DNF  |
- *                awaitSolved (after DNF) <-------------------'
+ *   disconnected -> scrambling -> ready -> solving -> done
+ *                      ^  ^                 |          |
+ *                      |  '-- turn in ready |          |
+ *                awaitSolved <--------------+----------'
  *
- * The solve only ever ends with the trigger (space) — never automatically,
- * even when the cube is solved.
+ * There is no start key. Nothing is timed until the hands move, so the first
+ * turn after the scramble is what opens the attempt — memorising takes as
+ * long as it takes. The attempt only ever ends with the trigger (space),
+ * never automatically, even when the cube is solved: the cube state at that
+ * moment decides success or DNF.
  *
  * Four quarter turns of U or D in the same direction resets the tracking to
  * a solved cube, so a desync can be fixed on the cube itself.
  */
 
-export type Phase = "disconnected" | "awaitSolved" | "scrambling" | "ready" | "memo" | "exec" | "done";
+export type Phase = "disconnected" | "awaitSolved" | "scrambling" | "ready" | "solving" | "done";
 
 export interface RawMove {
   move: OuterMove;
-  /** wall-clock-ish local timestamp (ms), used for phase boundaries */
+  /** wall-clock-ish local timestamp (ms), used when the cube reports none */
   tLocal: number;
-  /** cube hardware timestamp (ms), used for per-case timing when present */
+  /** cube hardware timestamp (ms), the more precise clock when present */
   tCube?: number;
 }
 
 export interface SolveOutcome {
   result: "ok" | "dnf";
+  /** first turn of the execution, on the local clock */
   startedAt: number;
-  memoMs: number;
+  /** first turn to last turn; 0 for an attempt given up before turning */
   execMs: number;
-  totalMs: number;
   scramble: string;
-  moves: RawMove[];
-  startState: CubeState;
-  reconstruction: Reconstruction;
+  /** turns with the best clock available, as stored */
+  moves: { m: OuterMove; t: number }[];
 }
 
 export interface MachineSnapshot {
   phase: Phase;
   scramble: string | null;
   follower: ScrambleFollower | null;
-  spaceAt: number | null;
   firstMoveAt: number | null;
   moveCount: number;
   lastOutcome: SolveOutcome | null;
@@ -60,31 +58,11 @@ export class TimerMachine {
   private scramble: string | null = null;
   private pendingScramble: string | null = null;
 
-  /**
-   * The turns that lead from a solved cube to the state it is in now. Kept
-   * alongside cubeState (and reset with it), it lets anything that needs a
-   * path *to* somewhere express it as plain algebra: invert this, append the
-   * target, and the solver shortens the result.
-   */
-  private sinceSolved: OuterMove[] = [];
-
-  private spaceAt: number | null = null;
   private firstMoveAt: number | null = null;
   private moves: RawMove[] = [];
-  private scrambledState: CubeState | null = null;
   lastOutcome: SolveOutcome | null = null;
 
   private listeners = new Set<() => void>();
-
-  constructor(
-    private buffers: BufferRefs,
-    private judgeCtx?: JudgeContext,
-  ) {}
-
-  setBuffers(buffers: BufferRefs, judgeCtx?: JudgeContext) {
-    this.buffers = buffers;
-    this.judgeCtx = judgeCtx;
-  }
 
   subscribe(fn: () => void): () => void {
     this.listeners.add(fn);
@@ -100,7 +78,6 @@ export class TimerMachine {
       phase: this.phase,
       scramble: this.scramble,
       follower: this.follower,
-      spaceAt: this.spaceAt,
       firstMoveAt: this.firstMoveAt,
       moveCount: this.moves.length,
       lastOutcome: this.lastOutcome,
@@ -110,7 +87,6 @@ export class TimerMachine {
   /** Cube connected; we trust the cube to be solved (markSolved fixes desync). */
   connect() {
     this.cubeState = solvedState();
-    this.sinceSolved = [];
     this.phase = "scrambling";
     this.applyScrambleIfPending();
     this.emit();
@@ -127,13 +103,21 @@ export class TimerMachine {
    * follower, so the scramble can be applied again.
    */
   markSolved() {
-    this.cubeState = solvedState();
-    this.sinceSolved = [];
-    this.resetGesture = null;
-    if (this.phase === "disconnected" || this.phase === "memo" || this.phase === "exec") {
+    if (this.phase === "disconnected" || this.phase === "solving") {
+      this.cubeState = solvedState();
+      this.resetGesture = null;
       this.emit();
       return;
     }
+    this.resetToSolved();
+  }
+
+  /** Back to a solved cube and a fresh scramble, dropping any attempt. */
+  private resetToSolved() {
+    this.cubeState = solvedState();
+    this.resetGesture = null;
+    this.firstMoveAt = null;
+    this.moves = [];
     this.phase = "scrambling";
     this.applyScrambleIfPending();
     this.follower = this.scramble ? new ScrambleFollower(this.scramble) : null;
@@ -144,9 +128,12 @@ export class TimerMachine {
    * The reset gesture: four quarter turns of U or D in the same direction.
    * It leaves the cube exactly as it was, so it cannot be confused with
    * solving — and no scramble or alg ever contains it — which makes it a safe
-   * way to say "this cube is solved" without putting the cube down. Ignored
-   * while the timer runs, where four identical turns would be a real (if
-   * unusual) part of the solve.
+   * way to say "this cube is solved" without putting the cube down.
+   *
+   * It stays available once an attempt has begun, but only while the gesture
+   * is the whole attempt so far: four quarter turns of one face in a row
+   * cancel out, so nobody's execution starts with them, while a desync that
+   * was noticed a moment too late is exactly when the gesture is needed.
    */
   private resetGesture: { face: Face; amount: 1 | 2 | 3; quarters: number } | null = null;
 
@@ -164,7 +151,7 @@ export class TimerMachine {
     return this.resetGesture!.quarters >= 4;
   }
 
-  /** Provide the (async-generated) scramble for the next solve. */
+  /** Provide the (async-generated) scramble for the next attempt. */
   setScramble(alg: string) {
     this.pendingScramble = alg;
     if (this.phase === "scrambling" || this.phase === "done") this.applyScrambleIfPending();
@@ -180,14 +167,10 @@ export class TimerMachine {
 
   onCubeMove(move: OuterMove, tLocal: number, tCube?: number) {
     this.cubeState = applyMove(this.cubeState, move);
-    // back to solved: the path from solved is empty again, which also keeps
-    // this from growing over a whole session
-    if (isSolved(this.cubeState)) this.sinceSolved = [];
-    else this.sinceSolved.push(move);
-    const running = this.phase === "memo" || this.phase === "exec";
-    if (running) this.resetGesture = null;
-    else if (this.isResetGesture(move)) {
-      this.markSolved();
+    // `moves` still holds the turns before this one, so "fewer than four" is
+    // the gesture being everything the attempt consists of
+    if (this.isResetGesture(move) && (this.phase !== "solving" || this.moves.length < 4)) {
+      this.resetToSolved();
       return;
     }
     switch (this.phase) {
@@ -197,17 +180,14 @@ export class TimerMachine {
         break;
       }
       case "ready": {
-        this.follower?.onMove(move);
-        if (!this.follower?.isDone) this.phase = "scrambling";
-        break;
-      }
-      case "memo": {
+        // the scramble is on the cube and the hands are moving: this is the
+        // execution, and its first turn is where the measurement starts
         this.firstMoveAt = tLocal;
         this.moves = [{ move, tLocal, tCube }];
-        this.phase = "exec";
+        this.phase = "solving";
         break;
       }
-      case "exec": {
+      case "solving": {
         this.moves.push({ move, tLocal, tCube });
         break;
       }
@@ -219,71 +199,60 @@ export class TimerMachine {
         break;
       }
       case "done": {
-        // moving the cube after a solve before the next scramble is shown:
-        // keep tracking; once a scramble arrives the follower starts fresh
-        // from whatever was tracked (corrections will surface any mismatch)
+        // turning the cube after an attempt, before the next scramble is
+        // shown: keep tracking, the follower starts fresh from whatever was
+        // tracked (corrections will surface any mismatch)
         break;
       }
     }
     this.emit();
   }
 
-  /** The space key. */
+  /** The space key: ends the attempt. */
   trigger(t: number) {
-    switch (this.phase) {
-      case "ready": {
-        this.spaceAt = t;
-        this.firstMoveAt = null;
-        this.moves = [];
-        this.scrambledState = this.cubeState;
-        this.phase = "memo";
-        break;
-      }
-      case "memo": {
-        // gave up during memo: DNF without execution
-        this.finishSolve(t, "dnf-memo");
-        break;
-      }
-      case "exec": {
-        this.finishSolve(t, "normal");
-        break;
-      }
-      default:
-        return;
+    if (this.phase === "ready") {
+      // gave up before the first turn: a failed attempt with no execution
+      this.finishAttempt();
+      this.emit();
+      return;
     }
+    if (this.phase !== "solving") return;
+    this.finishAttempt(t);
     this.emit();
   }
 
-  private finishSolve(t: number, mode: "normal" | "dnf-memo") {
-    const spaceAt = this.spaceAt!;
-    const memoEnd = mode === "dnf-memo" ? t : this.firstMoveAt!;
-    const solved = mode === "normal" && isSolved(this.cubeState);
+  /** Throw the attempt away — an accidental turn should not become a DNF. */
+  discard() {
+    if (this.phase !== "solving" && this.phase !== "ready") return;
+    this.firstMoveAt = null;
+    this.moves = [];
+    this.scramble = null;
+    this.follower = null;
+    this.phase = "done";
+    this.nextSolve();
+  }
 
+  private finishAttempt(endedAt?: number) {
+    const solved = endedAt !== undefined && isSolved(this.cubeState);
+    // the cube's own clock is the precise one, but it is all-or-nothing:
+    // mixing it with the local clock would invent gaps that never happened
     const useCube = this.moves.length > 0 && this.moves.every((m) => m.tCube !== undefined);
-    const timed: TimedMove[] = this.moves.map((m) => ({
-      move: m.move,
-      t: useCube ? m.tCube! : m.tLocal,
-    }));
-    const startState = this.scrambledState ?? solvedState();
-    const reconstruction = reconstructSolve(startState, timed, this.buffers, undefined, true, this.judgeCtx);
 
     this.lastOutcome = {
       result: solved ? "ok" : "dnf",
-      startedAt: spaceAt,
-      memoMs: memoEnd - spaceAt,
-      execMs: mode === "dnf-memo" ? 0 : t - this.firstMoveAt!,
-      totalMs: t - spaceAt,
+      startedAt: this.firstMoveAt ?? endedAt ?? 0,
+      execMs: this.moves.length > 0 ? this.moves[this.moves.length - 1].tLocal - this.moves[0].tLocal : 0,
       scramble: this.scramble ?? "",
-      moves: this.moves,
-      startState,
-      reconstruction,
+      moves: this.moves.map((m) => ({ m: m.move, t: Math.round(useCube ? m.tCube! : m.tLocal) })),
     };
+    this.firstMoveAt = null;
+    this.moves = [];
     this.scramble = null;
     this.follower = null;
     this.phase = "done";
   }
 
-  /** Move on to the next solve; needs the cube physically solved again. */
+  /** Move on to the next attempt; needs the cube physically solved again. */
   nextSolve() {
     if (this.phase !== "done") return;
     this.phase = isSolved(this.cubeState) ? "scrambling" : "awaitSolved";
@@ -293,10 +262,5 @@ export class TimerMachine {
 
   get cubeIsSolved(): boolean {
     return isSolved(this.cubeState);
-  }
-
-  /** Turns leading from a solved cube to the state the cube is in now. */
-  movesSinceSolved(): OuterMove[] {
-    return [...this.sinceSolved];
   }
 }
