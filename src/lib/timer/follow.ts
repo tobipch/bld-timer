@@ -7,6 +7,7 @@ import {
   type AlgToken,
 } from "../cube/alg";
 import { applyMove, solvedState, statesEqual, type CubeState, type OuterMove } from "../cube/state";
+import { IDENTITY_FACE_MAP, mapToken, type FaceMap } from "../cube/orientation";
 
 /**
  * Scramble follow-along (ltct-trainer style): track progress through the
@@ -89,7 +90,11 @@ export class ScrambleFollower {
     return dev.face === expected.face && expected.amount === 2 && dev.amount !== 2;
   }
 
-  display(): FollowDisplay {
+  /**
+   * @param frame how the user holds the cube; the scramble is shown in their
+   * frame while everything else stays in the cube's own.
+   */
+  display(frame: FaceMap = IDENTITY_FACE_MAP): FollowDisplay {
     const doneMoves = this.pointer;
     const partial = this.isPartial();
     const tokens = this.tokens.map((t, i) => {
@@ -108,11 +113,13 @@ export class ScrambleFollower {
       } else {
         status = "pending";
       }
-      return { text: formatToken(t), status };
+      return { text: formatToken(mapToken(t, frame)), status };
     });
     const corrections = partial
       ? []
-      : invertOuterMoves(this.deviation).map((m) => m.face + (m.amount === 2 ? "2" : m.amount === 3 ? "'" : ""));
+      : invertOuterMoves(this.deviation).map(
+          (m) => frame[m.face] + (m.amount === 2 ? "2" : m.amount === 3 ? "'" : ""),
+        );
     return { tokens, corrections, partial, done: this.isDone };
   }
 }

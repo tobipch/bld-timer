@@ -76,6 +76,22 @@ mod 3), hand the pattern to cubing.js's two-phase solver and invert the solution
 scramble of normal length (about 19 moves) reaching exactly that state. Composing random
 commutators instead would produce long, lopsided scrambles that give away what they contain.
 
+### 2.1 Holding orientation
+
+A smart cube reports turns in its own frame, which is fixed to the cube: the white face is always
+U to the hardware, whichever way round it is being held. Scrambles are written in that same frame.
+
+Someone who solves with a different pair of colours up and front would otherwise have to turn the
+cube into the WCA orientation to scramble it and back again to solve it. Instead the scramble is
+**displayed** in the frame they hold the cube in, derived from the two colours they pick in
+settings: the letters change, the physical result does not. Outer and wide turns keep their
+amount, since clockwise-seen-from-outside is the same motion whichever way the cube is held; a
+slice or a rotation can flip, because it is named after a face that may now be on the other side
+of its axis. Corrections are shown in the same frame.
+
+Nothing else moves. The follower, the state tracking and the flow measurement all stay in the
+cube's own frame, where the hardware speaks.
+
 **Scramble hygiene (full mode).** 3BLD scrambles end with a random orientation written as wide
 moves, and cubing.js does not check that suffix against the scramble it follows: about one in six
 comes out like `L2 U2 L2 Rw' Dw`, where `Rw'` is `L' x'` and the `L2` merges with it into a single
@@ -136,6 +152,7 @@ is no "DNF average": every attempt carries a number, so the average always exist
 
 ## 5. Settings
 
+- **Holding orientation**: which colours are up and front when you solve (§2.1).
 - **Pause threshold**: floor in ms and multiple of the median gap.
 - **Theme**: dark / light.
 
