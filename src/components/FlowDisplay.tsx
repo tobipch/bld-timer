@@ -18,6 +18,9 @@ export function FlowDisplay() {
     return solve ? { solve, flow: flowOf(solve, settings.flow) } : null;
   });
 
+  /** Nothing to report yet: a placeholder, not a value. */
+  const empty = createMemo(() => app.snapshot().phase !== "solving" && !last());
+
   const big = createMemo(() => {
     const snap = app.snapshot();
     if (snap.phase === "solving") return `${snap.moveCount}`;
@@ -72,7 +75,9 @@ export function FlowDisplay() {
 
   return (
     <div class={`timer-display ${phaseClass()}`}>
-      <div class="timer-time mono">{big()}</div>
+      <div class="timer-time mono" classList={{ placeholder: empty() }}>
+        {big()}
+      </div>
       <div class="timer-phase">{label()}</div>
       <div class="timer-split muted mono">{sub()}</div>
     </div>

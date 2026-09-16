@@ -2,25 +2,32 @@ import type { APIEvent } from "@solidjs/start/server";
 import { eq } from "drizzle-orm";
 import { schema } from "~/server/db";
 import { handle, json, newId, requireUser } from "~/server/api";
-import { isScrambleMode, MODE_LABEL, SCRAMBLE_MODES } from "~/lib/scramble";
+import { isScrambleMode, MODE_LABEL } from "~/lib/scramble";
+import { missingModes, sessionMode } from "~/lib/sessions";
 
 export const GET = (event: APIEvent) =>
   handle(async () => {
     const { db, userId } = await requireUser(event.request);
-    let rows = await db.select().from(schema.timerSession).where(eq(schema.timerSession.userId, userId));
-    if (rows.length === 0) {
-      // one session per scramble mode, so there is always somewhere to solve
-      const seeded = SCRAMBLE_MODES.map((mode) => ({
-        id: newId(),
-        userId,
-        name: MODE_LABEL[mode],
-        createdAt: Date.now(),
-        mode,
-      }));
-      await db.insert(schema.timerSession).values(seeded);
-      rows = seeded;
-    }
-    return json(rows.map((r) => ({ id: r.id, name: r.name, createdAt: r.createdAt, mode: r.mode })));
+    const stored = (
+      await db.select().from(schema.timerSession).where(eq(schema.timerSession.userId, userId))
+    ).map((r) => ({ id: r.id, name: r.name, createdAt: r.createdAt, mode: sessionMode(r.mode) }));
+
+    // every mode gets a session, including for an account that was already
+    // practising before the modes existed — otherwise its mode switch has
+    // nowhere to go
+    const missing = missingModes(stored).map((mode) => ({
+      id: newId(),
+      userId,
+      name: MODE_LABEL[mode],
+      createdAt: Date.now(),
+      mode,
+    }));
+    if (missing.length > 0) await db.insert(schema.timerSession).values(missing);
+
+    return json([
+      ...stored,
+      ...missing.map(({ userId: _u, ...s }) => s),
+    ]);
   });
 
 export const POST = (event: APIEvent) =>

@@ -728,3 +728,10 @@ select:focus {
   max-width: 75ch;
   line-height: 1.5;
 }
+
+/* nothing measured yet: a placeholder, not a 96px dash */
+.timer-time.placeholder {
+  font-size: 38px;
+  color: var(--text-dim);
+  opacity: 0.5;
+}
