@@ -17,8 +17,7 @@ export function ScrambleView() {
     const phase = app.snapshot().phase;
     if (!app.cube()) return "Connect a cube to start.";
     if (phase === "awaitSolved") return "Solve the cube to start the next scramble.";
-    if (phase === "memo") return "Memorising — first turn starts the execution.";
-    if (phase === "exec") return "Go. Space stops the timer.";
+    if (phase === "solving") return "Go. Space ends the attempt.";
     return app.scrambleLoading() ? "Generating scramble…" : "Waiting for scramble…";
   };
 

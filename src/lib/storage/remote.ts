@@ -1,4 +1,5 @@
-import type { AlgExecution, DnfCategory, Session, SolveRecord, StorageAdapter } from "./types";
+import type { ScrambleMode } from "../scramble";
+import type { Session, SolveRecord, StorageAdapter } from "./types";
 
 /** API-backed adapter (Neon via the server routes). */
 
@@ -50,23 +51,13 @@ export function createRemoteAdapter(): StorageAdapter {
   return {
     mode: "remote",
     listSessions: () => call<Session[]>("/api/data/sessions"),
-    addSession: (name) => call<Session>("/api/data/sessions", post({ name })),
+    addSession: (name, mode: ScrambleMode) => call<Session>("/api/data/sessions", post({ name, mode })),
     async listSolves(sessionId?: string) {
       const solves = await call<SolveRecord[]>("/api/data/solves");
       return sessionId ? solves.filter((s) => s.sessionId === sessionId) : solves;
     },
-    addSolveWithExecutions: (rec, execs) =>
-      call<{ solve: SolveRecord; executions: AlgExecution[] }>(
-        "/api/data/solves",
-        post({ solve: rec, executions: execs }),
-      ),
+    addSolve: (rec) => call<SolveRecord>("/api/data/solves", post(rec)),
     deleteSolve: (id) => call(`/api/data/solves/${id}`, { method: "DELETE" }),
     updateSolve: (id, body) => call(`/api/data/solves/${id}`, patch(body)),
-    listExecutions: () => call<AlgExecution[]>("/api/data/executions"),
-    deleteExecution: (id) => call(`/api/data/executions/${id}`, { method: "DELETE" }),
-    listDnfCategories: () => call<DnfCategory[]>("/api/data/dnf-categories"),
-    addDnfCategory: (cat) => call<DnfCategory>("/api/data/dnf-categories", post(cat)),
-    updateDnfCategory: (id, body) => call(`/api/data/dnf-categories/${id}`, patch(body)),
-    deleteDnfCategory: (id) => call(`/api/data/dnf-categories/${id}`, { method: "DELETE" }),
   };
 }

@@ -1,55 +1,70 @@
 # BLD Timer
 
-A smart-cube timer for **3x3 blindfolded**. Connects to QiYi / MoYu smart cubes via
-[btcube-web](https://github.com/simonkellly/btcube-web) and splits every solve into **memo** and
-**execution**.
+A smart-cube trainer for **3x3 blindfolded** that measures **flow** instead of time. Connects to
+QiYi / MoYu smart cubes via [btcube-web](https://github.com/simonkellly/btcube-web).
 
-Its defining feature is the **replay**: step through any solve move by move — manually or played
-back with the exact timing your cube recorded — and see the cube, the pieces still unsolved, and
-where your hands hesitated. That is how you find out what went wrong, without the tool having to
-guess.
+There is no clock. What it measures is how much of an execution was actually spent turning:
 
-Every DNF gets **tagged with its reasons** in one keypress each — as many as apply — so the
-stats answer both questions: how often do I DNF, and what do I DNF at.
+```
+flow = (execution - standing still) / execution
+```
 
-Alongside that, the reconstruction engine still recognizes commutators, parities, LTCTs, flips and
-twists to build a **self-learning algorithm database** with your own execution times — as an aid,
-never as a verdict.
+An execution with no hesitation is 100%. One where you stood still as long as you turned is 50%.
+Memorisation is not measured at all, and neither is the pause before you stop the attempt — the
+measured window is the first turn to the last.
+
+Three exercises, each with its own sessions, because their numbers are not comparable:
+
+| Mode | Scramble |
+|---|---|
+| **Full** | a WCA 3BLD scramble |
+| **Edges** | corners stay solved |
+| **Corners** | edges stay solved |
 
 See [SPEC.md](./SPEC.md) for the full design.
 
-## How it works
+## What counts as a pause
 
-- The cube is tracked piece-level in a center-fixed frame, so slice/wide-move algs work exactly as
-  the gyro-less hardware reports them.
-- The reconstruction engine classifies state diffs into BLD primitives (3-cycles with floating
-  buffers, 2c2e parity, LTCT, flips, 2/3-twists) and segments the move stream with a
-  time-gap-aware dynamic program — no algorithm list needed up front.
-- Every recognized case is stored with the exact moves you performed plus execution and
-  recognition time; the Algs page aggregates them into matrices, case details with variants, and
-  slowest-case practice hints.
+A gap between two turns counts as standing still once it is longer than **3x your own median gap
+in that attempt**, but never below **250 ms**. Both are adjustable in Settings.
+
+- The threshold scales with the solver: 200 ms between turns is a pause at 8 TPS and normal
+  turning at 4.
+- Only the part *above* the threshold is counted, so there is no cliff — a gap just over the line
+  costs just over nothing.
+
+Flow is never stored, only derived from the recorded move timestamps, so changing the threshold
+re-scores the whole history rather than leaving old attempts judged by an old setting.
+
+## Statistics
+
+Success rate, current and best ao5 / ao12 / ao50 / ao100, best single, and a chart of every
+attempt with its rolling ao5 and ao12. Averages are trimmed the usual way (best and worst out; 5%
+at each end for the long ones).
+
+**A failed attempt scores the flow of the execution it did have.** A DNF is a statement about the
+memo or the algorithms, not about how fluently the hands moved; scoring it 0 would quietly turn
+the flow average into a success rate. The success rate stands next to it as its own number, so
+neither distorts the other. The one attempt that scores 0 is the one given up before the second
+turn — there was no execution in it to measure.
 
 ## Development
 
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # engine + machine test suite (incl. 3,000+ real-alg fixtures)
+npm test
 npm run typecheck
 ```
 
 No Bluetooth needed for development: connect the **virtual cube** on the timer page and drive it
 with buttons / alg input (the "Auto-scramble" button applies the displayed scramble instantly).
 
-Solve flow: connect → follow the scramble (green done / bold current / orange pending, red
-corrections) → **space** starts memo → first turn starts execution → **space** stops (the timer
-never stops automatically). Solved at that moment = success, otherwise DNF — then pick the reason
-with `1`–`9`, or open the replay to find it.
-
-In the replay: `←` `→` step, `↑` `↓` jump between pauses, `space` plays, and the timeline curve is
-your turning speed over the solve. Moves read as a cuber writes them — `R2` rather than two
-`R` turns, and `M` / `E` / `S` rather than the opposite-face pairs the cube actually reports. Every position also gives you a scramble-length alg that
-reproduces exactly that state, so you can put the cube back where it broke.
+Flow of an attempt: connect -> follow the scramble (green done / bold current / orange pending,
+red corrections) -> memorise -> **the first turn starts the execution** -> **space** ends it (the
+attempt never ends by itself, even with a solved cube). Solved at that moment = success, otherwise
+DNF. `Escape` throws a running attempt away, space before the first turn records a give-up, and
+four quarter turns of U or D in a row tell the app the cube is solved when tracking has drifted.
 
 ## Deployment (Vercel + Neon)
 
