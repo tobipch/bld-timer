@@ -1,5 +1,6 @@
-import { MODE_LABEL, SCRAMBLE_MODES } from "../scramble";
+import { MODE_LABEL } from "../scramble";
 import type { ScrambleMode } from "../scramble";
+import { missingModes, sessionMode } from "../sessions";
 import type { Session, SolveRecord, StorageAdapter } from "./types";
 
 /**
@@ -27,30 +28,26 @@ function write<T>(key: string, items: T[]) {
 const newId = () =>
   typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
-/** One session per scramble mode, so there is always somewhere to solve. */
-function seedSessions(): Session[] {
-  return SCRAMBLE_MODES.map((mode) => ({
-    id: newId(),
-    name: MODE_LABEL[mode],
-    createdAt: Date.now(),
-    mode,
-  }));
+function newSession(mode: ScrambleMode, name = MODE_LABEL[mode]): Session {
+  return { id: newId(), name, createdAt: Date.now(), mode };
 }
 
 export function createLocalStorageAdapter(): StorageAdapter {
   return {
     mode: "local",
     async listSessions() {
-      let sessions = read<Session>(KEY.sessions);
-      if (sessions.length === 0) {
-        sessions = seedSessions();
+      // sessions stored before modes existed read as "full", and every mode
+      // gets a session, so the mode switch always has somewhere to go
+      const stored = read<Session>(KEY.sessions).map((s) => ({ ...s, mode: sessionMode(s.mode) }));
+      const sessions = [...stored, ...missingModes(stored).map((m) => newSession(m))];
+      if (JSON.stringify(sessions) !== JSON.stringify(read<Session>(KEY.sessions))) {
         write(KEY.sessions, sessions);
       }
       return sessions;
     },
     async addSession(name: string, mode: ScrambleMode) {
       const sessions = read<Session>(KEY.sessions);
-      const s: Session = { id: newId(), name, createdAt: Date.now(), mode };
+      const s = newSession(mode, name);
       write(KEY.sessions, [...sessions, s]);
       return s;
     },

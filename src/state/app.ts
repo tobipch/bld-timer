@@ -45,12 +45,23 @@ function createApp() {
       storage = createRemoteAdapter();
       setStorageMode("remote");
     }
-    const ss = await storage.listSessions();
-    setSessions(ss);
-    if (!settings.sessionId || !ss.some((s) => s.id === settings.sessionId)) {
-      setSettings("sessionId", ss[0]?.id ?? null);
+    try {
+      const ss = await storage.listSessions();
+      setSessions(ss);
+      if (!settings.sessionId || !ss.some((s) => s.id === settings.sessionId)) {
+        setSettings("sessionId", ss[0]?.id ?? null);
+      }
+      setSolves(await storage.listSolves());
+    } catch (e) {
+      // without sessions nothing can be saved, and silently ending up with
+      // an empty screen is the worst way to find that out. The usual cause
+      // is a database still waiting for the latest migration.
+      setError(
+        `Could not load your sessions (${e}). Nothing will be saved until this works — ` +
+          `if the app was just updated, the database migration is probably still pending ` +
+          `(npm run db:migrate).`,
+      );
     }
-    setSolves(await storage.listSolves());
   }
 
   const currentSession = createMemo(
