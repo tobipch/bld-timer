@@ -1,4 +1,6 @@
 import { createMemo, For, Show } from "solid-js";
+import { holdFaceMap, IDENTITY_FACE_MAP } from "~/lib/cube/orientation";
+import { settings } from "~/state/settings";
 import { useApp } from "~/state/app";
 
 /**
@@ -7,10 +9,14 @@ import { useApp } from "~/state/app";
  */
 export function ScrambleView() {
   const app = useApp();
+  const frame = createMemo(
+    () => holdFaceMap(settings.topColor, settings.frontColor) ?? IDENTITY_FACE_MAP,
+  );
+
   const display = createMemo(() => {
     const snap = app.snapshot();
     if (!snap.follower) return null;
-    return snap.follower.display();
+    return snap.follower.display(frame());
   });
 
   const waitingText = () => {

@@ -23,6 +23,15 @@ Three exercises, each with its own sessions, because their numbers are not compa
 
 See [SPEC.md](./SPEC.md) for the full design.
 
+## How you hold the cube
+
+Scrambles are written for the WCA orientation (white up, green front) and a smart cube reports its
+turns in that same frame. Pick the colours you solve with in Settings and the scramble is shown in
+**your** frame instead: the letters change, the cube ends up in exactly the same state, and it
+never has to be turned into the WCA orientation to scramble and back again to solve. Only the
+display moves - the follower, the state tracking and the flow measurement all stay in the cube's
+own frame, where the hardware speaks.
+
 ## What counts as a pause
 
 A gap between two turns counts as standing still once it is longer than **3x your own median gap
