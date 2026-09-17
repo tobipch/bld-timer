@@ -83,6 +83,13 @@ function createApp() {
       .sort((a, b) => a.startedAt - b.startedAt);
   });
 
+  // where you were in each exercise, so a mode switch does not drop you into
+  // some other session of the same kind and hide your attempts
+  createEffect(() => {
+    const s = currentSession();
+    if (s) setSettings("sessionByMode", s.mode, s.id);
+  });
+
   async function newScramble() {
     setScrambleLoading(true);
     try {
@@ -210,9 +217,12 @@ function createApp() {
     setSettings("sessionId", s.id);
   }
 
-  /** Switch to this exercise, keeping the session last used for it. */
+  /** Switch to this exercise, landing in the session last used for it. */
   function selectMode(m: ScrambleMode) {
-    const target = sessions().find((s) => s.mode === m);
+    const remembered = settings.sessionByMode[m];
+    const target =
+      sessions().find((s) => s.id === remembered && s.mode === m) ??
+      sessions().find((s) => s.mode === m);
     if (target) setSettings("sessionId", target.id);
   }
 
