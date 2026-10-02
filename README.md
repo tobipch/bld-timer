@@ -70,9 +70,8 @@ No Bluetooth needed for development: connect the **virtual cube** on the timer p
 with buttons / alg input (the "Auto-scramble" button applies the displayed scramble instantly).
 
 Flow of an attempt: connect -> follow the scramble (green done / bold current / orange pending,
-red corrections) -> memorise -> **the first turn starts the execution** -> **space** ends it (the
-attempt never ends by itself, even with a solved cube). Solved at that moment = success, otherwise
-DNF. `Escape` throws a running attempt away, space before the first turn records a give-up, and
+red corrections) -> memorise -> **the first turn starts the execution** -> the timer **stops by itself** on
+the turn that solves the cube (success); **space** ends it early as a DNF. `Escape` throws a running attempt away, space before the first turn records a give-up, and
 four quarter turns of U or D in a row tell the app the cube is solved when tracking has drifted.
 
 ## Deployment (Vercel + Neon)

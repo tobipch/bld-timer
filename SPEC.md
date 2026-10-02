@@ -107,7 +107,7 @@ disconnected ──connect──▶ scrambling ──scramble matches──▶ r
                               ▲  ▲                           │ first turn
                               │  '── turn while ready         ▼
                               │      (back, with corrections) solving
-                              │                               │ space
+                              │                               │ solved / space
                         awaitSolved ◀── unsolved ── done ◀────┘
                               │                    │
                               └── cube solved ─────┘ (solved ⇒ next scramble)
@@ -115,9 +115,8 @@ disconnected ──connect──▶ scrambling ──scramble matches──▶ r
 
 - **There is no start key.** Nothing is timed until the hands move, so the first turn after the
   scramble opens the attempt. Memorisation takes as long as it takes.
-- **The attempt only ever ends with space**, never automatically, even when the cube reaches the
-  solved state — as in real BLD, where you stop the timer yourself. The cube state at that moment
-  decides: solved (in any whole-cube orientation) → success, otherwise DNF.
+- **The attempt ends by itself** on the turn that solves the cube (in any whole-cube orientation):
+  a success, timed to that turn. **Space** ends it early as a DNF.
 - **Space before the first turn** records a give-up: a failed attempt with no execution.
 - **Escape discards** a running attempt without recording it — an accidental turn is not a DNF.
 - **AWAIT_SOLVED**: after a DNF the cube is not solved; the next scramble waits for it.

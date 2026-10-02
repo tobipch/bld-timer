@@ -52,7 +52,7 @@ export function FlowDisplay() {
       case "ready":
         return "memorise — the first turn starts the execution";
       case "solving":
-        return "turns — space when you are done";
+        return "turns — stops when solved, space to give up";
     }
   });
 

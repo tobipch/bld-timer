@@ -102,7 +102,12 @@ function createApp() {
   });
 
   function wireCube(io: CubeIO) {
-    io.onMove((m) => machine.onCubeMove(m.move, m.tLocal, m.tCube));
+    io.onMove((m) => {
+      const before = machine.phase;
+      machine.onCubeMove(m.move, m.tLocal, m.tCube);
+      // the solving turn ends the attempt on its own
+      if (before === "solving" && machine.phase === "done") finishAttempt();
+    });
     io.onBattery?.((pct) => setBattery(pct));
     batch(() => {
       setCube(io);
@@ -173,12 +178,16 @@ function createApp() {
     const phase = machine.phase;
     if (phase !== "ready" && phase !== "solving") return false;
     machine.trigger(Math.round(performance.now()));
-    if (machine.phase === "done" && machine.lastOutcome) {
-      void persistOutcome(machine.lastOutcome);
-      machine.nextSolve();
-      void newScramble();
-    }
+    if (machine.phase === "done") finishAttempt();
     return true;
+  }
+
+  /** Save the attempt that just ended and line up the next one. */
+  function finishAttempt() {
+    if (!machine.lastOutcome) return;
+    void persistOutcome(machine.lastOutcome);
+    machine.nextSolve();
+    void newScramble();
   }
 
   /** Throw away a running attempt — an accidental turn is not a DNF. */
