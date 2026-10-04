@@ -40,7 +40,9 @@ export function SessionBar() {
       </div>
       <span class="muted mode-hint">{MODE_HINT[app.mode()]}</span>
 
-      <Show when={ofMode().length > 1}>
+      {/* always shown, even with a single session: which one you are recording
+          into is not something to leave implicit */}
+      <Show when={ofMode().length > 0}>
         <select
           value={settings.sessionId ?? ""}
           onChange={(e) => setSettings("sessionId", e.currentTarget.value)}

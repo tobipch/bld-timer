@@ -1,5 +1,6 @@
 import { createMemo, For, Show } from "solid-js";
 import { formatFlow } from "~/lib/flow";
+import { MODE_LABEL } from "~/lib/scramble";
 import { flowOf, formatMs } from "~/lib/stats";
 import { settings } from "~/state/settings";
 import { useApp } from "~/state/app";
@@ -13,10 +14,29 @@ export function TimeList() {
       .reverse(),
   );
 
+  /**
+   * Attempts of this exercise that are in one of its other sessions. An empty
+   * list is otherwise indistinguishable from lost data.
+   */
+  const elsewhere = createMemo(() => app.modeSolves().length - app.sessionSolves().length);
+
   return (
     <div class="timelist card">
       <h3>Attempts</h3>
-      <Show when={items().length > 0} fallback={<span class="muted">Nothing yet.</span>}>
+      <Show
+        when={items().length > 0}
+        fallback={
+          <span class="muted">
+            Nothing in this session yet.
+            <Show when={elsewhere() > 0}>
+              {" "}
+              {elsewhere()} attempt{elsewhere() === 1 ? "" : "s"} in your other{" "}
+              {MODE_LABEL[app.mode()].toLowerCase()} sessions — pick one above, or see them together
+              under Stats.
+            </Show>
+          </span>
+        }
+      >
         <ul>
           <For each={items()}>
             {({ s, n, flow }) => (

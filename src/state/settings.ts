@@ -11,6 +11,8 @@ export interface Settings {
   frontColor: string;
   theme: "dark" | "light";
   sessionId: string | null;
+  /** the session last used for each mode, so switching back comes home */
+  sessionByMode: Record<string, string>;
 }
 
 const KEY = "bld-timer.settings";
@@ -22,6 +24,7 @@ function defaults(): Settings {
     frontColor: "green",
     theme: "dark",
     sessionId: null,
+    sessionByMode: {},
   };
 }
 
@@ -43,6 +46,7 @@ function load(): Settings {
       ...colors,
       theme: parsed.theme === "light" ? "light" : "dark",
       sessionId: parsed.sessionId ?? null,
+      sessionByMode: parsed.sessionByMode ?? {},
     };
   } catch {
     return d;

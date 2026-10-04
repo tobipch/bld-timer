@@ -1,5 +1,5 @@
 import type { APIEvent } from "@solidjs/start/server";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { schema } from "~/server/db";
 import { handle, json, newId, requireUser } from "~/server/api";
 import { isScrambleMode, MODE_LABEL } from "~/lib/scramble";
@@ -8,8 +8,14 @@ import { missingModes, sessionMode } from "~/lib/sessions";
 export const GET = (event: APIEvent) =>
   handle(async () => {
     const { db, userId } = await requireUser(event.request);
+    // ordered, because the client falls back to the first session: an
+    // unordered select would hand out a different one on every load
     const stored = (
-      await db.select().from(schema.timerSession).where(eq(schema.timerSession.userId, userId))
+      await db
+        .select()
+        .from(schema.timerSession)
+        .where(eq(schema.timerSession.userId, userId))
+        .orderBy(asc(schema.timerSession.createdAt))
     ).map((r) => ({ id: r.id, name: r.name, createdAt: r.createdAt, mode: sessionMode(r.mode) }));
 
     // every mode gets a session, including for an account that was already
