@@ -333,10 +333,13 @@ select:focus {
   overflow-y: auto;
 }
 
+/* one line per attempt, whatever the column width */
 .timelist li {
+  position: relative;
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 6px;
+  white-space: nowrap;
   padding: 4px 6px;
   border-radius: 6px;
   cursor: pointer;
@@ -351,8 +354,12 @@ select:focus {
   outline: 1px solid var(--accent-dim);
 }
 
+.timelist li > * {
+  flex-shrink: 0;
+}
+
 .tl-n {
-  width: 26px;
+  width: 30px;
   text-align: right;
   font-size: 12px;
 }
@@ -365,14 +372,20 @@ select:focus {
   font-weight: 600;
 }
 
+/* overlaid on hover, so they never take room from the numbers */
 .tl-actions {
-  margin-left: auto;
-  visibility: hidden;
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  background: var(--bg-inset);
+  border-radius: 6px;
 }
 
 .timelist li:hover .tl-actions,
 .timelist li.selected .tl-actions {
-  visibility: visible;
+  display: block;
 }
 
 .tl-del {
