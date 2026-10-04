@@ -399,8 +399,20 @@ select:focus {
   font-size: 14px;
 }
 
-.statspanel td:last-child {
+.statspanel td + td,
+.statspanel th {
   text-align: right;
+}
+
+.statspanel th {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-dim);
+  padding-bottom: 2px;
+}
+
+.stats-avgs {
+  margin-top: 10px;
 }
 
 /* ---- dev panel ---- */
