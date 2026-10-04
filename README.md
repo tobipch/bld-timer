@@ -13,13 +13,7 @@ An execution with no hesitation is 100%. One where you stood still as long as yo
 Memorisation is not measured at all, and neither is the pause before you stop the attempt — the
 measured window is the first turn to the last.
 
-Three exercises, each with its own sessions, because their numbers are not comparable:
-
-| Mode | Scramble |
-|---|---|
-| **Full** | a WCA 3BLD scramble |
-| **Edges** | corners stay solved |
-| **Corners** | edges stay solved |
+Scrambles are WCA 3BLD scrambles. Attempts are grouped into sessions.
 
 See [SPEC.md](./SPEC.md) for the full design.
 
@@ -70,9 +64,8 @@ No Bluetooth needed for development: connect the **virtual cube** on the timer p
 with buttons / alg input (the "Auto-scramble" button applies the displayed scramble instantly).
 
 Flow of an attempt: connect -> follow the scramble (green done / bold current / orange pending,
-red corrections) -> memorise -> **the first turn starts the execution** -> **space** ends it (the
-attempt never ends by itself, even with a solved cube). Solved at that moment = success, otherwise
-DNF. `Escape` throws a running attempt away, space before the first turn records a give-up, and
+red corrections) -> memorise -> **the first turn starts the execution** -> the timer **stops by itself** on
+the turn that solves the cube (success); **space** ends it early as a DNF. `Escape` throws a running attempt away, space before the first turn records a give-up, and
 four quarter turns of U or D in a row tell the app the cube is solved when tracking has drifted.
 
 ## Deployment (Vercel + Neon)

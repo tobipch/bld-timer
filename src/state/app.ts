@@ -1,11 +1,11 @@
-import { batch, createEffect, createMemo, createRoot, createSignal } from "solid-js";
+import { batch, createMemo, createRoot, createSignal } from "solid-js";
 import { outerMoveToString } from "~/lib/cube/alg";
 import { TimerMachine, type SolveOutcome } from "~/lib/timer/machine";
 import type { CubeIO } from "~/lib/cube-io/types";
 import { VirtualCube } from "~/lib/cube-io/virtual";
 import { createLocalStorageAdapter } from "~/lib/storage/local";
 import { createRemoteAdapter, fetchServerStatus, type ServerStatus } from "~/lib/storage/remote";
-import { generateScramble, type ScrambleMode } from "~/lib/scramble";
+import { generateScramble } from "~/lib/scramble";
 import type { Session, SolveRecord, StorageAdapter } from "~/lib/storage/types";
 import { settings, setSettings } from "./settings";
 
@@ -67,33 +67,16 @@ function createApp() {
   const currentSession = createMemo(
     () => sessions().find((s) => s.id === settings.sessionId) ?? sessions()[0] ?? null,
   );
-  const mode = createMemo<ScrambleMode>(() => currentSession()?.mode ?? "full");
-
   const sessionSolves = createMemo(() =>
     solves()
       .filter((s) => s.sessionId === settings.sessionId)
       .sort((a, b) => a.startedAt - b.startedAt),
   );
 
-  /** Every attempt of the current exercise, across its sessions. */
-  const modeSolves = createMemo(() => {
-    const ids = new Set(sessions().filter((s) => s.mode === mode()).map((s) => s.id));
-    return solves()
-      .filter((s) => ids.has(s.sessionId))
-      .sort((a, b) => a.startedAt - b.startedAt);
-  });
-
-  // where you were in each exercise, so a mode switch does not drop you into
-  // some other session of the same kind and hide your attempts
-  createEffect(() => {
-    const s = currentSession();
-    if (s) setSettings("sessionByMode", s.mode, s.id);
-  });
-
   async function newScramble() {
     setScrambleLoading(true);
     try {
-      machine.setScramble(await generateScramble(mode()));
+      machine.setScramble(await generateScramble());
     } catch (e) {
       setError(`scramble generation failed: ${e}`);
     } finally {
@@ -101,15 +84,13 @@ function createApp() {
     }
   }
 
-  // a different exercise needs a different scramble, right away
-  createEffect((previous: ScrambleMode | undefined) => {
-    const m = mode();
-    if (previous !== undefined && previous !== m && cube()) void newScramble();
-    return m;
-  });
-
   function wireCube(io: CubeIO) {
-    io.onMove((m) => machine.onCubeMove(m.move, m.tLocal, m.tCube));
+    io.onMove((m) => {
+      const before = machine.phase;
+      machine.onCubeMove(m.move, m.tLocal, m.tCube);
+      // the solving turn ends the attempt on its own
+      if (before === "solving" && machine.phase === "done") finishAttempt();
+    });
     io.onBattery?.((pct) => setBattery(pct));
     batch(() => {
       setCube(io);
@@ -180,12 +161,16 @@ function createApp() {
     const phase = machine.phase;
     if (phase !== "ready" && phase !== "solving") return false;
     machine.trigger(Math.round(performance.now()));
-    if (machine.phase === "done" && machine.lastOutcome) {
-      void persistOutcome(machine.lastOutcome);
-      machine.nextSolve();
-      void newScramble();
-    }
+    if (machine.phase === "done") finishAttempt();
     return true;
+  }
+
+  /** Save the attempt that just ended and line up the next one. */
+  function finishAttempt() {
+    if (!machine.lastOutcome) return;
+    void persistOutcome(machine.lastOutcome);
+    machine.nextSolve();
+    void newScramble();
   }
 
   /** Throw away a running attempt — an accidental turn is not a DNF. */
@@ -211,19 +196,10 @@ function createApp() {
     if (selectedSolveId() === id) setSelectedSolveId(null);
   }
 
-  async function addSession(name: string, sessionMode: ScrambleMode) {
-    const s = await storage.addSession(name, sessionMode);
+  async function addSession(name: string) {
+    const s = await storage.addSession(name);
     setSessions((xs) => [...xs, s]);
     setSettings("sessionId", s.id);
-  }
-
-  /** Switch to this exercise, landing in the session last used for it. */
-  function selectMode(m: ScrambleMode) {
-    const remembered = settings.sessionByMode[m];
-    const target =
-      sessions().find((s) => s.id === remembered && s.mode === m) ??
-      sessions().find((s) => s.mode === m);
-    if (target) setSettings("sessionId", target.id);
   }
 
   void loadData();
@@ -238,11 +214,8 @@ function createApp() {
     scrambleLoading,
     sessions,
     currentSession,
-    mode,
-    selectMode,
     solves,
     sessionSolves,
-    modeSolves,
     selectedSolveId,
     setSelectedSolveId,
     connectSmart,

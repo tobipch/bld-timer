@@ -29,7 +29,6 @@ export function DevPanel() {
   return (
     <Show when={vc()}>
       <div class="devpanel card">
-        <h3>Virtual cube</h3>
         <div class="dev-buttons">
           {["U", "U'", "D", "D'", "L", "L'", "R", "R'", "F", "F'", "B", "B'"].map((m) => (
             <button class="mono" onClick={() => apply(m)}>
@@ -45,7 +44,7 @@ export function DevPanel() {
           }}
         >
           <input
-            placeholder="alg, e.g. [R U R', D'] or M2"
+            placeholder="alg"
             value={alg()}
             onInput={(e) => setAlg(e.currentTarget.value)}
           />
@@ -57,9 +56,8 @@ export function DevPanel() {
               const s = app.snapshot().scramble;
               if (s) apply(s);
             }}
-            title="Apply the displayed scramble instantly"
           >
-            Auto-scramble
+            Scramble
           </button>
         </form>
         <Show when={err()}>

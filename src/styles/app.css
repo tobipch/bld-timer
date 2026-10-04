@@ -221,10 +221,6 @@ select:focus {
   display: inline-block;
 }
 
-.conn-hint {
-  font-size: 12px;
-}
-
 .conn-error {
   cursor: pointer;
   font-size: 13px;
@@ -306,36 +302,17 @@ select:focus {
   letter-spacing: 2px;
 }
 
-.timer-phase {
-  margin-top: 10px;
-  font-size: 15px;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: var(--text-dim);
-}
-
 .timer-split {
   margin-top: 6px;
   min-height: 18px;
 }
 
-.phase-memo .timer-time,
-.phase-memo .timer-phase {
-  color: var(--memo);
-}
-
-.phase-exec .timer-time,
-.phase-exec .timer-phase {
+.phase-exec .timer-time {
   color: var(--exec);
 }
 
-.phase-ready .timer-phase {
-  color: var(--good);
-}
-
-.phase-armed .timer-time,
-.phase-armed .timer-phase {
-  color: var(--warn);
+.phase-ready .timer-split {
+  color: var(--memo);
 }
 
 .phase-ok .timer-time {
@@ -347,17 +324,6 @@ select:focus {
 }
 
 /* ---- time list ---- */
-
-.timelist h3,
-.statspanel h3,
-.recon h3,
-.devpanel h3 {
-  margin: 0 0 10px;
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-dim);
-}
 
 .timelist ul {
   list-style: none;
@@ -395,9 +361,14 @@ select:focus {
   font-weight: 600;
 }
 
-.tl-split {
-  font-size: 11px;
-  flex: 1;
+.tl-actions {
+  margin-left: auto;
+  visibility: hidden;
+}
+
+.timelist li:hover .tl-actions,
+.timelist li.selected .tl-actions {
+  visibility: visible;
 }
 
 .tl-del {
@@ -462,18 +433,6 @@ select:focus {
   gap: 14px;
   max-width: 1100px;
   margin: 0 auto;
-}
-
-.stats-header {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.stats-header form {
-  display: flex;
-  gap: 8px;
 }
 
 .trend-chart {
@@ -570,97 +529,12 @@ select:focus {
   pointer-events: none;
 }
 
-.last-solve {
+/* ---- session picker ---- */
+
+.session-picker {
+  margin-left: auto;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  border-left: 3px solid var(--good);
-  animation: rise 0.25s ease;
-}
-
-.last-solve.is-dnf {
-  border-left-color: var(--bad);
-}
-
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.last-solve-head {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.last-solve-time {
-  font-size: 26px;
-  font-weight: 700;
-}
-
-.scope-toggle {
-  display: flex;
-  gap: 0;
-}
-
-.scope-toggle button {
-  border-radius: 0;
-  font-size: 13px;
-}
-
-.scope-toggle button:first-child {
-  border-radius: 6px 0 0 6px;
-}
-
-.scope-toggle button:last-child {
-  border-radius: 0 6px 6px 0;
-  border-left: none;
-}
-
-.scope-toggle button.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-/* ---- session bar ---- */
-
-.session-bar {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-  padding: 10px 16px;
-}
-
-.mode-hint {
-  font-size: 13px;
-}
-
-.session-add {
-  display: flex;
-  gap: 8px;
-}
-
-.link-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--accent);
-  text-decoration: underline;
-  font-size: 13px;
-}
-
-.link-btn:hover {
-  border: none;
-  filter: brightness(1.15);
+  gap: 6px;
 }
 
 /* ---- time list extras ---- */
@@ -671,17 +545,7 @@ select:focus {
   letter-spacing: 1px;
 }
 
-/* ---- last attempt ---- */
-
-.ask-hint {
-  font-size: 12px;
-}
-
 /* ---- stats page ---- */
-
-.stats-title {
-  font-weight: 600;
-}
 
 .stat-tiles {
   display: flex;
@@ -706,12 +570,6 @@ select:focus {
   font-weight: 500;
 }
 
-.table-note {
-  font-size: 12px;
-  margin: 10px 0 0;
-  max-width: 70ch;
-}
-
 /* ---- settings ---- */
 
 .settings-rows input[type="number"] {
@@ -721,12 +579,6 @@ select:focus {
 .settings-rows label {
   justify-content: space-between;
   max-width: 520px;
-}
-
-.settings-page p {
-  margin: 0 0 12px;
-  max-width: 75ch;
-  line-height: 1.5;
 }
 
 /* nothing measured yet: a placeholder, not a 96px dash */
@@ -763,9 +615,4 @@ select:focus {
 .color-swatch.selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-dim);
-}
-
-.small-note {
-  font-size: 12px;
-  margin-top: 10px;
 }

@@ -59,22 +59,11 @@ averages.
 
 ---
 
-## 2. Scramble modes
+## 2. Scrambles
 
-Three exercises. Each is a **separate session** — an edge-only execution and a full solve are not
-comparable, and mixing them into one average would say nothing about either.
-
-| Mode | State |
-|---|---|
-| **full** | WCA 3BLD scramble (cubing.js `random-scramble-for-event("333bf")`) |
-| **edges** | corners solved, edges in any legal permutation and orientation |
-| **corners** | edges solved, corners in any legal permutation and orientation |
-
-The one-piece-type scrambles are built **as states, not as algorithms**: draw a random legal orbit
-(permutation parity even, because the solved type is even; flips summing to 0 mod 2, twists to 0
-mod 3), hand the pattern to cubing.js's two-phase solver and invert the solution. The result is a
-scramble of normal length (about 19 moves) reaching exactly that state. Composing random
-commutators instead would produce long, lopsided scrambles that give away what they contain.
+WCA 3BLD scrambles (cubing.js `random-scramble-for-event("333bf")`). Edge-only and corner-only
+practice existed once and was removed; sessions stored for it stay in the database but are not
+shown.
 
 ### 2.1 Holding orientation
 
@@ -92,7 +81,7 @@ of its axis. Corrections are shown in the same frame.
 Nothing else moves. The follower, the state tracking and the flow measurement all stay in the
 cube's own frame, where the hardware speaks.
 
-**Scramble hygiene (full mode).** 3BLD scrambles end with a random orientation written as wide
+**Scramble hygiene.** 3BLD scrambles end with a random orientation written as wide
 moves, and cubing.js does not check that suffix against the scramble it follows: about one in six
 comes out like `L2 U2 L2 Rw' Dw`, where `Rw'` is `L' x'` and the `L2` merges with it into a single
 `L`. Scrambles are translated into the outer turns the cube reports and redrawn when the same face
@@ -107,7 +96,7 @@ disconnected ──connect──▶ scrambling ──scramble matches──▶ r
                               ▲  ▲                           │ first turn
                               │  '── turn while ready         ▼
                               │      (back, with corrections) solving
-                              │                               │ space
+                              │                               │ solved / space
                         awaitSolved ◀── unsolved ── done ◀────┘
                               │                    │
                               └── cube solved ─────┘ (solved ⇒ next scramble)
@@ -115,9 +104,8 @@ disconnected ──connect──▶ scrambling ──scramble matches──▶ r
 
 - **There is no start key.** Nothing is timed until the hands move, so the first turn after the
   scramble opens the attempt. Memorisation takes as long as it takes.
-- **The attempt only ever ends with space**, never automatically, even when the cube reaches the
-  solved state — as in real BLD, where you stop the timer yourself. The cube state at that moment
-  decides: solved (in any whole-cube orientation) → success, otherwise DNF.
+- **The attempt ends by itself** on the turn that solves the cube (in any whole-cube orientation):
+  a success, timed to that turn. **Space** ends it early as a DNF.
 - **Space before the first turn** records a give-up: a failed attempt with no execution.
 - **Escape discards** a running attempt without recording it — an accidental turn is not a DNF.
 - **AWAIT_SOLVED**: after a DNF the cube is not solved; the next scramble waits for it.
@@ -136,7 +124,7 @@ the local clock otherwise — never a mix, which would invent gaps that never ha
 
 ## 4. Statistics
 
-Per session, and across all sessions of the same mode:
+Per session:
 
 - **Success rate** and solved / attempts.
 - **Current and best** ao5, ao12, ao50, ao100, and the best single.
@@ -169,7 +157,7 @@ Sessions are added and switched on the timer page.
 | Hosting | **Vercel** | SolidStart deploys via the Vercel preset |
 | Database | **Neon Postgres** + **Drizzle ORM** | Serverless driver fits Vercel functions; Drizzle is the lightest type-safe ORM |
 | Auth | **better-auth** (email + password) | Stores users/sessions directly in Neon, works in SolidStart server functions |
-| Cube logic | **cubing.js** (`kpuzzle`, `search`, `scramble`) | The state format btcube-web emits, plus the two-phase solver the mode scrambles are built on |
+| Cube logic | **cubing.js** (`scramble`) | WCA scrambles |
 | Smart cube | **btcube-web** | QiYi + MoYu; RxJS subscriptions |
 | Charts | **uPlot** | ~40 kB, fast time series |
 | Styling | Plain CSS (CSS variables for theming) | Zero runtime cost |
@@ -180,7 +168,7 @@ Sessions are added and switched on the timer page.
 - **Login**: email + password via better-auth (cookie sessions), plus WCA OAuth.
 - **Guest fallback**: without logging in the app acts as a shared default user, controlled by
   `ALLOW_GUEST_FALLBACK`. Without a database it runs entirely on localStorage.
-- **Per-user data**: sessions (name + mode) and attempts (result, execution length, scramble,
+- **Per-user data**: sessions (name) and attempts (result, execution length, scramble,
   timed moves).
 - The timer itself is 100% client-side — Bluetooth, state tracking, flow — so nothing is on the
   hot path. The attempt is written to the API afterwards, optimistically, without blocking the

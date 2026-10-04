@@ -13,9 +13,9 @@ import { ScrambleFollower } from "./follow";
  *
  * There is no start key. Nothing is timed until the hands move, so the first
  * turn after the scramble is what opens the attempt — memorising takes as
- * long as it takes. The attempt only ever ends with the trigger (space),
- * never automatically, even when the cube is solved: the cube state at that
- * moment decides success or DNF.
+ * long as it takes. The attempt ends by itself the moment the cube is
+ * solved (a success, timed to that turn); the trigger (space) ends it early
+ * as a DNF.
  *
  * Four quarter turns of U or D in the same direction resets the tracking to
  * a solved cube, so a desync can be fixed on the cube itself.
@@ -189,6 +189,7 @@ export class TimerMachine {
       }
       case "solving": {
         this.moves.push({ move, tLocal, tCube });
+        if (isSolved(this.cubeState)) this.finishAttempt(tLocal);
         break;
       }
       case "awaitSolved": {
@@ -208,7 +209,7 @@ export class TimerMachine {
     this.emit();
   }
 
-  /** The space key: ends the attempt. */
+  /** The space key: ends the attempt (a DNF unless the cube is solved). */
   trigger(t: number) {
     if (this.phase === "ready") {
       // gave up before the first turn: a failed attempt with no execution

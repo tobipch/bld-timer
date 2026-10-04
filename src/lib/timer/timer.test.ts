@@ -106,13 +106,11 @@ describe("TimerMachine", () => {
     m.onCubeMove(solution[0], 6000, 6000);
     expect(m.phase).toBe("solving");
     m.onCubeMove(solution[1], 6400, 6400);
-    expect(m.phase).toBe("solving"); // solved, but only space ends the attempt
-    m.trigger(9000);
+    // the solving turn stops the timer by itself
     expect(m.phase).toBe("done");
     const o = m.lastOutcome!;
     expect(o.result).toBe("ok");
     expect(o.startedAt).toBe(6000);
-    // the wait before the stop key is not part of the execution
     expect(o.execMs).toBe(400);
     expect(o.moves.map((x) => x.t)).toEqual([6000, 6400]);
   });
@@ -150,7 +148,7 @@ describe("TimerMachine", () => {
     const m = readyMachine("R U");
     m.onCubeMove({ face: "U", amount: 3 }, 1000);
     m.onCubeMove({ face: "R", amount: 3 }, 1500, 9999);
-    m.trigger(2000);
+    expect(m.phase).toBe("done");
     expect(m.lastOutcome!.moves.map((x) => x.t)).toEqual([1000, 1500]);
   });
 
@@ -178,7 +176,7 @@ describe("TimerMachine", () => {
   it("after a success the next scramble starts immediately", () => {
     const m = readyMachine("R U");
     for (const mv of invertOuterMoves(algToOuterMoves("R U"))) m.onCubeMove(mv, 2000, 2000);
-    m.trigger(3000);
+    expect(m.lastOutcome!.result).toBe("ok");
     m.setScramble("L D2");
     m.nextSolve();
     expect(m.phase).toBe("scrambling");

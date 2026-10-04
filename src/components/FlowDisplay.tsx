@@ -1,13 +1,12 @@
 import { createMemo } from "solid-js";
-import { flowOf } from "~/lib/stats";
+import { flowOf, formatMs } from "~/lib/stats";
 import { formatFlow } from "~/lib/flow";
 import { settings } from "~/state/settings";
 import { useApp } from "~/state/app";
 
 /**
- * What the last attempt scored, and what the cube is waiting for. While the
- * hands are moving there is nothing worth watching — the eyes are shut — so
- * the display shows the turn count and gets out of the way.
+ * The selected attempt's flow, or the turn count while solving. The colour
+ * says the rest: blue running, green solved, red DNF.
  */
 export function FlowDisplay() {
   const app = useApp();
@@ -18,42 +17,13 @@ export function FlowDisplay() {
     return solve ? { solve, flow: flowOf(solve, settings.flow) } : null;
   });
 
-  /** Nothing to report yet: a placeholder, not a value. */
-  const empty = createMemo(() => app.snapshot().phase !== "solving" && !last());
+  const solving = () => app.snapshot().phase === "solving";
 
   const big = createMemo(() => {
-    const snap = app.snapshot();
-    if (snap.phase === "solving") return `${snap.moveCount}`;
+    if (solving()) return `${app.snapshot().moveCount}`;
     const l = last();
     if (!l) return "—";
     return l.solve.result === "dnf" && l.flow.flow === null ? "DNF" : formatFlow(l.flow.flow);
-  });
-
-  /** The result of the attempt just finished, while it is still on screen. */
-  const verdict = createMemo(() => {
-    const l = last();
-    if (!l) return null;
-    const phase = app.snapshot().phase;
-    if (phase === "solving" || phase === "ready" || phase === "disconnected") return null;
-    return l.solve.result === "dnf" ? "DNF" : "solved";
-  });
-
-  const label = createMemo(() => {
-    const said = verdict();
-    const prefix = said ? `${said} · ` : "";
-    switch (app.snapshot().phase) {
-      case "disconnected":
-        return "not connected";
-      case "awaitSolved":
-        return `${prefix}solve the cube to continue — or spin U/D four times`;
-      case "scrambling":
-      case "done":
-        return `${prefix}scramble the cube`;
-      case "ready":
-        return "memorise — the first turn starts the execution";
-      case "solving":
-        return "turns — space when you are done";
-    }
   });
 
   const phaseClass = createMemo(() => {
@@ -66,19 +36,20 @@ export function FlowDisplay() {
   });
 
   const sub = createMemo(() => {
-    if (app.snapshot().phase === "solving") return " ";
+    const phase = app.snapshot().phase;
+    if (phase === "ready") return "memo";
     const l = last();
-    if (!l || l.flow.flow === null) return " ";
-    const { pauses, pausedMs, thresholdMs } = l.flow;
-    return `${pauses} pause${pauses === 1 ? "" : "s"} · ${(pausedMs / 1000).toFixed(1)}s standing still · over ${thresholdMs} ms`;
+    if (solving() || !l) return " ";
+    const { turns, execMs, pauses } = l.flow;
+    const dnf = l.solve.result === "dnf" ? "DNF · " : "";
+    return `${dnf}${turns} turns · ${formatMs(execMs)} · ${pauses} pause${pauses === 1 ? "" : "s"}`;
   });
 
   return (
     <div class={`timer-display ${phaseClass()}`}>
-      <div class="timer-time mono" classList={{ placeholder: empty() }}>
+      <div class="timer-time mono" classList={{ placeholder: !solving() && !last() }}>
         {big()}
       </div>
-      <div class="timer-phase">{label()}</div>
       <div class="timer-split muted mono">{sub()}</div>
     </div>
   );
