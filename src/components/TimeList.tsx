@@ -1,6 +1,6 @@
 import { createMemo, For, Show } from "solid-js";
 import { formatFlow } from "~/lib/flow";
-import { flowOf } from "~/lib/stats";
+import { flowOf, formatMs } from "~/lib/stats";
 import { settings } from "~/state/settings";
 import { useApp } from "~/state/app";
 
@@ -27,6 +27,7 @@ export function TimeList() {
                 <span class="mono tl-time" classList={{ bad: s.result === "dnf" }}>
                   {formatFlow(flow.flow)}
                 </span>
+                <span class="mono muted tl-exec">{formatMs(flow.execMs)}</span>
                 <Show when={s.result === "dnf"}>
                   <span class="tl-dnf bad">DNF</span>
                 </Show>

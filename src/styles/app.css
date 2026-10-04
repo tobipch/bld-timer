@@ -357,6 +357,10 @@ select:focus {
   font-size: 12px;
 }
 
+.tl-exec {
+  font-size: 11px;
+}
+
 .tl-time {
   font-weight: 600;
 }
