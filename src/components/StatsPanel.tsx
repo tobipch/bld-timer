@@ -1,19 +1,33 @@
 import { createMemo, For } from "solid-js";
-import { aoN, bestSingle, formatAvg, formatPct, scoresOf, successRate } from "~/lib/stats";
+import {
+  aoN,
+  bestAoN,
+  bestSingle,
+  formatAvg,
+  formatPct,
+  scoresOf,
+  successRate,
+  type AvgResult,
+} from "~/lib/stats";
 import { settings } from "~/state/settings";
 import { useApp } from "~/state/app";
 
+const AVERAGES = [5, 12, 50, 100];
+
 export function StatsPanel() {
   const app = useApp();
+  const values = createMemo(() => scoresOf(app.sessionSolves(), settings.flow));
+
   const rows = createMemo(() => {
-    const xs = app.sessionSolves();
-    const values = scoresOf(xs, settings.flow);
+    const vs = values();
+    const last: AvgResult = vs.length > 0 ? { kind: "flow", value: vs[vs.length - 1] } : { kind: "none" };
     return [
-      { k: "attempts", v: `${xs.length}` },
-      { k: "success", v: formatPct(successRate(xs)) },
-      { k: "best", v: formatAvg(bestSingle(values)) },
-      { k: "ao5", v: formatAvg(aoN(values, 5)) },
-      { k: "ao12", v: formatAvg(aoN(values, 12)) },
+      { k: "single", current: formatAvg(last), best: formatAvg(bestSingle(vs)) },
+      ...AVERAGES.map((n) => ({
+        k: `ao${n}`,
+        current: formatAvg(aoN(vs, n)),
+        best: formatAvg(bestAoN(vs, n)),
+      })),
     ];
   });
 
@@ -21,11 +35,35 @@ export function StatsPanel() {
     <div class="statspanel card">
       <table>
         <tbody>
+          <tr>
+            <td class="muted">attempts</td>
+            <td class="mono" colSpan={2}>
+              {app.sessionSolves().length}
+            </td>
+          </tr>
+          <tr>
+            <td class="muted">success</td>
+            <td class="mono" colSpan={2}>
+              {formatPct(successRate(app.sessionSolves()))}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <table class="stats-avgs">
+        <thead>
+          <tr>
+            <th />
+            <th>current</th>
+            <th>best</th>
+          </tr>
+        </thead>
+        <tbody>
           <For each={rows()}>
             {(r) => (
               <tr>
                 <td class="muted">{r.k}</td>
-                <td class="mono">{r.v}</td>
+                <td class="mono">{r.current}</td>
+                <td class="mono">{r.best}</td>
               </tr>
             )}
           </For>
