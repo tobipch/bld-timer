@@ -2,42 +2,31 @@ import type { APIEvent } from "@solidjs/start/server";
 import { eq } from "drizzle-orm";
 import { schema } from "~/server/db";
 import { handle, json, newId, requireUser } from "~/server/api";
-import { isScrambleMode, MODE_LABEL } from "~/lib/scramble";
-import { missingModes, sessionMode } from "~/lib/sessions";
+import { DEFAULT_SESSION_NAME, isRetiredSession } from "~/lib/sessions";
 
 export const GET = (event: APIEvent) =>
   handle(async () => {
     const { db, userId } = await requireUser(event.request);
-    const stored = (
+    const shown = (
       await db.select().from(schema.timerSession).where(eq(schema.timerSession.userId, userId))
-    ).map((r) => ({ id: r.id, name: r.name, createdAt: r.createdAt, mode: sessionMode(r.mode) }));
+    )
+      .filter((r) => !isRetiredSession(r.mode))
+      .map((r) => ({ id: r.id, name: r.name, createdAt: r.createdAt }));
+    if (shown.length > 0) return json(shown);
 
-    // every mode gets a session, including for an account that was already
-    // practising before the modes existed — otherwise its mode switch has
-    // nowhere to go
-    const missing = missingModes(stored).map((mode) => ({
-      id: newId(),
-      userId,
-      name: MODE_LABEL[mode],
-      createdAt: Date.now(),
-      mode,
-    }));
-    if (missing.length > 0) await db.insert(schema.timerSession).values(missing);
-
-    return json([
-      ...stored,
-      ...missing.map(({ userId: _u, ...s }) => s),
-    ]);
+    // every account has somewhere to solve
+    const first = { id: newId(), userId, name: DEFAULT_SESSION_NAME, createdAt: Date.now() };
+    await db.insert(schema.timerSession).values(first);
+    return json([{ id: first.id, name: first.name, createdAt: first.createdAt }]);
   });
 
 export const POST = (event: APIEvent) =>
   handle(async () => {
     const { db, userId } = await requireUser(event.request);
-    const body = (await event.request.json()) as { name?: string; mode?: string };
+    const body = (await event.request.json()) as { name?: string };
     const name = (body.name ?? "").trim();
     if (!name) return json({ error: "name required" }, 400);
-    if (!isScrambleMode(body.mode)) return json({ error: "unknown scramble mode" }, 400);
-    const row = { id: newId(), userId, name, createdAt: Date.now(), mode: body.mode };
+    const row = { id: newId(), userId, name, createdAt: Date.now() };
     await db.insert(schema.timerSession).values(row);
-    return json({ id: row.id, name: row.name, createdAt: row.createdAt, mode: row.mode });
+    return json({ id: row.id, name: row.name, createdAt: row.createdAt });
   });

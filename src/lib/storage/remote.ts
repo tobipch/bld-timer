@@ -1,4 +1,3 @@
-import type { ScrambleMode } from "../scramble";
 import type { Session, SolveRecord, StorageAdapter } from "./types";
 
 /** API-backed adapter (Neon via the server routes). */
@@ -51,7 +50,7 @@ export function createRemoteAdapter(): StorageAdapter {
   return {
     mode: "remote",
     listSessions: () => call<Session[]>("/api/data/sessions"),
-    addSession: (name, mode: ScrambleMode) => call<Session>("/api/data/sessions", post({ name, mode })),
+    addSession: (name) => call<Session>("/api/data/sessions", post({ name })),
     async listSolves(sessionId?: string) {
       const solves = await call<SolveRecord[]>("/api/data/solves");
       return sessionId ? solves.filter((s) => s.sessionId === sessionId) : solves;

@@ -13,13 +13,7 @@ An execution with no hesitation is 100%. One where you stood still as long as yo
 Memorisation is not measured at all, and neither is the pause before you stop the attempt — the
 measured window is the first turn to the last.
 
-Three exercises, each with its own sessions, because their numbers are not comparable:
-
-| Mode | Scramble |
-|---|---|
-| **Full** | a WCA 3BLD scramble |
-| **Edges** | corners stay solved |
-| **Corners** | edges stay solved |
+Scrambles are WCA 3BLD scrambles. Attempts are grouped into sessions.
 
 See [SPEC.md](./SPEC.md) for the full design.
 

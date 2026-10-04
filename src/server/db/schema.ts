@@ -63,7 +63,7 @@ export const timerSession = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     createdAt: bigint("created_at", { mode: "number" }).notNull(),
-    // "full" | "edges" | "corners"
+    // "full"; "edges" and "corners" are retired practice modes, kept but not shown
     mode: text("mode").notNull().default("full"),
   },
   (t) => [index("timer_session_user_idx").on(t.userId)],

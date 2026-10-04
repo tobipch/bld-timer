@@ -1,5 +1,27 @@
-import { Show } from "solid-js";
+import { For, Show } from "solid-js";
+import { settings, setSettings } from "~/state/settings";
 import { useApp } from "~/state/app";
+
+function SessionPicker() {
+  const app = useApp();
+  const add = () => {
+    const name = prompt("Session name")?.trim();
+    if (name) void app.addSession(name);
+  };
+  return (
+    <div class="session-picker">
+      <select
+        value={settings.sessionId ?? ""}
+        onChange={(e) => setSettings("sessionId", e.currentTarget.value)}
+      >
+        <For each={app.sessions()}>{(s) => <option value={s.id}>{s.name}</option>}</For>
+      </select>
+      <button onClick={add} title="New session">
+        +
+      </button>
+    </div>
+  );
+}
 
 export function ConnectBar() {
   const app = useApp();
@@ -12,9 +34,7 @@ export function ConnectBar() {
             <button class="primary" onClick={() => void app.connectSmart()}>
               Connect cube
             </button>
-            <button onClick={() => app.connectVirtual()} title="Keyboard-driven cube for testing">
-              Virtual cube
-            </button>
+            <button onClick={() => app.connectVirtual()}>Virtual cube</button>
           </>
         }
       >
@@ -22,21 +42,21 @@ export function ConnectBar() {
           <>
             <span class="conn-name">
               <span class="conn-dot" /> {io().name}
+              <Show when={app.battery() !== null}>
+                <span class="muted">{app.battery()}%</span>
+              </Show>
             </span>
-            <Show when={app.battery() !== null}>
-              <span class="muted">{app.battery()}%</span>
-            </Show>
             <button
               onClick={() => app.machine.markSolved()}
-              title="Declare the cube's current state solved (fixes desync) — or spin U or D four times on the cube"
+              title="Fixes desync. Same as turning U or D four times."
             >
               Mark solved
             </button>
-            <span class="muted conn-hint">or spin U/D 4× on the cube</span>
             <button onClick={() => app.disconnect()}>Disconnect</button>
           </>
         )}
       </Show>
+      <SessionPicker />
       <Show when={app.error()}>
         <span class="bad conn-error" onClick={() => app.setError(null)}>
           {app.error()}

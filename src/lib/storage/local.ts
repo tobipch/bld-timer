@@ -1,6 +1,4 @@
-import { MODE_LABEL } from "../scramble";
-import type { ScrambleMode } from "../scramble";
-import { missingModes, sessionMode } from "../sessions";
+import { DEFAULT_SESSION_NAME, isRetiredSession } from "../sessions";
 import type { Session, SolveRecord, StorageAdapter } from "./types";
 
 /**
@@ -28,26 +26,24 @@ function write<T>(key: string, items: T[]) {
 const newId = () =>
   typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
-function newSession(mode: ScrambleMode, name = MODE_LABEL[mode]): Session {
-  return { id: newId(), name, createdAt: Date.now(), mode };
+function newSession(name: string): Session {
+  return { id: newId(), name, createdAt: Date.now() };
 }
 
 export function createLocalStorageAdapter(): StorageAdapter {
   return {
     mode: "local",
     async listSessions() {
-      // sessions stored before modes existed read as "full", and every mode
-      // gets a session, so the mode switch always has somewhere to go
-      const stored = read<Session>(KEY.sessions).map((s) => ({ ...s, mode: sessionMode(s.mode) }));
-      const sessions = [...stored, ...missingModes(stored).map((m) => newSession(m))];
-      if (JSON.stringify(sessions) !== JSON.stringify(read<Session>(KEY.sessions))) {
-        write(KEY.sessions, sessions);
-      }
-      return sessions;
+      const stored = read<Session & { mode?: string }>(KEY.sessions);
+      const shown = stored.filter((s) => !isRetiredSession(s.mode));
+      if (shown.length > 0) return shown;
+      const first = newSession(DEFAULT_SESSION_NAME);
+      write(KEY.sessions, [...stored, first]);
+      return [first];
     },
-    async addSession(name: string, mode: ScrambleMode) {
+    async addSession(name: string) {
       const sessions = read<Session>(KEY.sessions);
-      const s = newSession(mode, name);
+      const s = newSession(name);
       write(KEY.sessions, [...sessions, s]);
       return s;
     },

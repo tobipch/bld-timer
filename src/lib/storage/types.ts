@@ -1,15 +1,8 @@
-import type { ScrambleMode } from "../scramble";
-
-/**
- * A practice session. The scramble mode belongs to the session rather than to
- * a switch somewhere: edge-only, corner-only and full solves are different
- * exercises, and their numbers are not comparable.
- */
+/** A practice session. */
 export interface Session {
   id: string;
   name: string;
   createdAt: number;
-  mode: ScrambleMode;
 }
 
 /**
@@ -37,7 +30,7 @@ export interface SolvePatch {
 export interface StorageAdapter {
   readonly mode: "local" | "remote";
   listSessions(): Promise<Session[]>;
-  addSession(name: string, mode: ScrambleMode): Promise<Session>;
+  addSession(name: string): Promise<Session>;
   listSolves(sessionId?: string): Promise<SolveRecord[]>;
   addSolve(rec: Omit<SolveRecord, "id">): Promise<SolveRecord>;
   deleteSolve(id: string): Promise<void>;

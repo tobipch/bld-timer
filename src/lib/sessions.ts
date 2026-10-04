@@ -1,19 +1,10 @@
-import { isScrambleMode, SCRAMBLE_MODES, type ScrambleMode } from "./scramble";
-
 /**
- * Every mode needs a session to solve in, and the session list is older than
- * the modes are: an account that was already practising has one session with
- * no mode at all. Reading that as "full" and filling in whatever is missing
- * keeps the mode switch working — without it, clicking Edges or Corners has
- * nowhere to go and does nothing at all.
+ * Edge-only and corner-only practice no longer exist. Their sessions are
+ * still stored (nothing recorded gets destroyed), they are just not shown.
  */
-
-/** A session stored before modes existed is a full-scramble session. */
-export function sessionMode(mode: unknown): ScrambleMode {
-  return isScrambleMode(mode) ? mode : "full";
+export function isRetiredSession(mode: unknown): boolean {
+  return mode === "edges" || mode === "corners";
 }
 
-/** Modes with no session yet, in their canonical order. */
-export function missingModes(sessions: { mode: ScrambleMode }[]): ScrambleMode[] {
-  return SCRAMBLE_MODES.filter((m) => !sessions.some((s) => s.mode === m));
-}
+/** The session every account starts with. */
+export const DEFAULT_SESSION_NAME = "Main";

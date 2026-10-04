@@ -1,11 +1,11 @@
-import { batch, createEffect, createMemo, createRoot, createSignal } from "solid-js";
+import { batch, createMemo, createRoot, createSignal } from "solid-js";
 import { outerMoveToString } from "~/lib/cube/alg";
 import { TimerMachine, type SolveOutcome } from "~/lib/timer/machine";
 import type { CubeIO } from "~/lib/cube-io/types";
 import { VirtualCube } from "~/lib/cube-io/virtual";
 import { createLocalStorageAdapter } from "~/lib/storage/local";
 import { createRemoteAdapter, fetchServerStatus, type ServerStatus } from "~/lib/storage/remote";
-import { generateScramble, type ScrambleMode } from "~/lib/scramble";
+import { generateScramble } from "~/lib/scramble";
 import type { Session, SolveRecord, StorageAdapter } from "~/lib/storage/types";
 import { settings, setSettings } from "./settings";
 
@@ -67,39 +67,22 @@ function createApp() {
   const currentSession = createMemo(
     () => sessions().find((s) => s.id === settings.sessionId) ?? sessions()[0] ?? null,
   );
-  const mode = createMemo<ScrambleMode>(() => currentSession()?.mode ?? "full");
-
   const sessionSolves = createMemo(() =>
     solves()
       .filter((s) => s.sessionId === settings.sessionId)
       .sort((a, b) => a.startedAt - b.startedAt),
   );
 
-  /** Every attempt of the current exercise, across its sessions. */
-  const modeSolves = createMemo(() => {
-    const ids = new Set(sessions().filter((s) => s.mode === mode()).map((s) => s.id));
-    return solves()
-      .filter((s) => ids.has(s.sessionId))
-      .sort((a, b) => a.startedAt - b.startedAt);
-  });
-
   async function newScramble() {
     setScrambleLoading(true);
     try {
-      machine.setScramble(await generateScramble(mode()));
+      machine.setScramble(await generateScramble());
     } catch (e) {
       setError(`scramble generation failed: ${e}`);
     } finally {
       setScrambleLoading(false);
     }
   }
-
-  // a different exercise needs a different scramble, right away
-  createEffect((previous: ScrambleMode | undefined) => {
-    const m = mode();
-    if (previous !== undefined && previous !== m && cube()) void newScramble();
-    return m;
-  });
 
   function wireCube(io: CubeIO) {
     io.onMove((m) => {
@@ -213,16 +196,10 @@ function createApp() {
     if (selectedSolveId() === id) setSelectedSolveId(null);
   }
 
-  async function addSession(name: string, sessionMode: ScrambleMode) {
-    const s = await storage.addSession(name, sessionMode);
+  async function addSession(name: string) {
+    const s = await storage.addSession(name);
     setSessions((xs) => [...xs, s]);
     setSettings("sessionId", s.id);
-  }
-
-  /** Switch to this exercise, keeping the session last used for it. */
-  function selectMode(m: ScrambleMode) {
-    const target = sessions().find((s) => s.mode === m);
-    if (target) setSettings("sessionId", target.id);
   }
 
   void loadData();
@@ -237,11 +214,8 @@ function createApp() {
     scrambleLoading,
     sessions,
     currentSession,
-    mode,
-    selectMode,
     solves,
     sessionSolves,
-    modeSolves,
     selectedSolveId,
     setSelectedSolveId,
     connectSmart,

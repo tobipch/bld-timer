@@ -1,6 +1,5 @@
 import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import type uPlotType from "uplot";
-import { MODE_LABEL } from "~/lib/scramble";
 import {
   aoN,
   bestAoN,
@@ -106,125 +105,67 @@ function TrendChart(props: { solves: SolveRecord[] }) {
   );
 }
 
-function StatRow(props: { label: string; session: string; mode: string }) {
+function StatRow(props: { label: string; value: string }) {
   return (
     <tr>
       <td class="muted">{props.label}</td>
-      <td class="mono">{props.session}</td>
-      <td class="mono">{props.mode}</td>
+      <td class="mono">{props.value}</td>
     </tr>
   );
 }
 
 export default function StatsPage() {
   const app = useApp();
-  const [scope, setScope] = createSignal<"session" | "mode">("session");
-
-  const scoped = createMemo(() => (scope() === "session" ? app.sessionSolves() : app.modeSolves()));
-  const scopedValues = createMemo(() => scoresOf(scoped(), settings.flow));
-
-  const sessionValues = createMemo(() => scoresOf(app.sessionSolves(), settings.flow));
-  const modeValues = createMemo(() => scoresOf(app.modeSolves(), settings.flow));
-
-  const both = (f: (values: number[]) => string) => ({
-    session: f(sessionValues()),
-    mode: f(modeValues()),
-  });
-
-  const avg = (n: number) => both((values) => formatAvg(aoN(values, n)));
-  const best = (n: number) => both((values) => formatAvg(bestAoN(values, n)));
+  const solves = () => app.sessionSolves();
+  const values = createMemo(() => scoresOf(solves(), settings.flow));
 
   return (
     <div class="stats-page">
-      <div class="card stats-header">
-        <span class="stats-title">
-          {MODE_LABEL[app.mode()]} · {app.currentSession()?.name ?? "—"}
-        </span>
-        <div class="scope-toggle">
-          <button classList={{ active: scope() === "session" }} onClick={() => setScope("session")}>
-            this session
-          </button>
-          <button classList={{ active: scope() === "mode" }} onClick={() => setScope("mode")}>
-            all {MODE_LABEL[app.mode()].toLowerCase()}
-          </button>
-        </div>
-        <span class="muted">Sessions are switched on the timer page.</span>
-      </div>
-
       <div class="card">
-        <h3>Success</h3>
+        <h3>{app.currentSession()?.name ?? "—"}</h3>
         <div class="stat-tiles">
           <div class="stat-tile">
-            <span class="stat-value mono good">{formatPct(successRate(scoped()))}</span>
-            <span class="muted">success rate</span>
+            <span class="stat-value mono good">{formatPct(successRate(solves()))}</span>
+            <span class="muted">success</span>
           </div>
           <div class="stat-tile">
             <span class="stat-value mono">
-              {scoped().filter((s) => s.result === "ok").length}
-              <span class="muted">/{scoped().length}</span>
+              {solves().filter((s) => s.result === "ok").length}
+              <span class="muted">/{solves().length}</span>
             </span>
-            <span class="muted">solved / attempts</span>
+            <span class="muted">solved</span>
           </div>
           <div class="stat-tile">
-            <span class="stat-value mono">{formatAvg(aoN(scopedValues(), 5))}</span>
-            <span class="muted">current ao5</span>
+            <span class="stat-value mono">{formatAvg(aoN(values(), 5))}</span>
+            <span class="muted">ao5</span>
           </div>
           <div class="stat-tile">
-            <span class="stat-value mono">{formatAvg(bestSingle(scopedValues()))}</span>
-            <span class="muted">best single</span>
+            <span class="stat-value mono">{formatAvg(bestSingle(values()))}</span>
+            <span class="muted">best</span>
           </div>
         </div>
-        <p class="muted table-note">
-          Flow and success are two separate numbers on purpose: a failed attempt still scores the
-          flow of the execution it did have, so the averages say how fluently you turn and the
-          success rate says how often it worked.
-        </p>
       </div>
 
-      <div class="card">
-        <h3>
-          Flow over time{" "}
-          <span class="muted">({scope() === "session" ? "this session" : "all sessions"})</span>
-        </h3>
-        <Show when={scoped().length > 0} fallback={<span class="muted">Nothing yet.</span>}>
-          <TrendChart solves={scoped()} />
-          <p class="muted table-note">Every attempt, with the rolling ao5 and ao12.</p>
-        </Show>
-      </div>
+      <Show when={solves().length > 0}>
+        <div class="card">
+          <TrendChart solves={solves()} />
+        </div>
 
-      <div class="card">
-        <h3>Numbers</h3>
-        <table class="stats-table">
-          <thead>
-            <tr>
-              <th />
-              <th>session</th>
-              <th>all {MODE_LABEL[app.mode()].toLowerCase()}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <StatRow
-              label="attempts"
-              session={`${app.sessionSolves().length}`}
-              mode={`${app.modeSolves().length}`}
-            />
-            <StatRow
-              label="success rate"
-              session={formatPct(successRate(app.sessionSolves()))}
-              mode={formatPct(successRate(app.modeSolves()))}
-            />
-            <StatRow label="best single" {...both((v) => formatAvg(bestSingle(v)))} />
-            <StatRow label="ao5 (current)" {...avg(5)} />
-            <StatRow label="ao12 (current)" {...avg(12)} />
-            <StatRow label="ao50 (current)" {...avg(50)} />
-            <StatRow label="ao100 (current)" {...avg(100)} />
-            <StatRow label="ao5 (best)" {...best(5)} />
-            <StatRow label="ao12 (best)" {...best(12)} />
-            <StatRow label="ao50 (best)" {...best(50)} />
-            <StatRow label="ao100 (best)" {...best(100)} />
-          </tbody>
-        </table>
-      </div>
+        <div class="card">
+          <table class="stats-table">
+            <tbody>
+              <StatRow label="ao5" value={formatAvg(aoN(values(), 5))} />
+              <StatRow label="ao12" value={formatAvg(aoN(values(), 12))} />
+              <StatRow label="ao50" value={formatAvg(aoN(values(), 50))} />
+              <StatRow label="ao100" value={formatAvg(aoN(values(), 100))} />
+              <StatRow label="best ao5" value={formatAvg(bestAoN(values(), 5))} />
+              <StatRow label="best ao12" value={formatAvg(bestAoN(values(), 12))} />
+              <StatRow label="best ao50" value={formatAvg(bestAoN(values(), 50))} />
+              <StatRow label="best ao100" value={formatAvg(bestAoN(values(), 100))} />
+            </tbody>
+          </table>
+        </div>
+      </Show>
     </div>
   );
 }
