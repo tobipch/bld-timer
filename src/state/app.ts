@@ -196,6 +196,21 @@ function createApp() {
     if (selectedSolveId() === id) setSelectedSolveId(null);
   }
 
+  /** Delete every attempt of the current session. */
+  async function clearSession() {
+    const sid = settings.sessionId;
+    if (!sid) return;
+    try {
+      await storage.clearSession(sid);
+      batch(() => {
+        setSolves((xs) => xs.filter((s) => s.sessionId !== sid));
+        setSelectedSolveId(null);
+      });
+    } catch (e) {
+      setError(`resetting the session failed: ${e}`);
+    }
+  }
+
   async function addSession(name: string) {
     const s = await storage.addSession(name);
     setSessions((xs) => [...xs, s]);
@@ -227,6 +242,7 @@ function createApp() {
     deleteSolve,
     updateSolve,
     addSession,
+    clearSession,
     server,
     storageMode,
   };
