@@ -8,6 +8,13 @@ function SessionPicker() {
     const name = prompt("Session name")?.trim();
     if (name) void app.addSession(name);
   };
+  const reset = () => {
+    const n = app.sessionSolves().length;
+    const name = app.currentSession()?.name ?? "this session";
+    if (confirm(`Delete all ${n} attempt${n === 1 ? "" : "s"} in "${name}"? This cannot be undone.`)) {
+      void app.clearSession();
+    }
+  };
   return (
     <div class="session-picker">
       <select
@@ -18,6 +25,9 @@ function SessionPicker() {
       </select>
       <button onClick={add} title="New session">
         +
+      </button>
+      <button onClick={reset} disabled={app.sessionSolves().length === 0} title="Delete all attempts in this session">
+        Reset
       </button>
     </div>
   );

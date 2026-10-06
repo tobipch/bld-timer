@@ -62,6 +62,12 @@ export function createLocalStorageAdapter(): StorageAdapter {
         read<SolveRecord>(KEY.solves).map((s) => (s.id === id ? { ...s, ...patch } : s)),
       );
     },
+    async clearSession(sessionId) {
+      write(
+        KEY.solves,
+        read<SolveRecord>(KEY.solves).filter((s) => s.sessionId !== sessionId),
+      );
+    },
     async deleteSolve(id) {
       write(
         KEY.solves,

@@ -1,5 +1,5 @@
 import type { APIEvent } from "@solidjs/start/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { schema } from "~/server/db";
 import { handle, json, newId, requireUser } from "~/server/api";
 import type { SolveRecord } from "~/lib/storage/types";
@@ -37,4 +37,17 @@ export const POST = (event: APIEvent) =>
       moves: s.moves,
     });
     return json({ ...s, id });
+  });
+
+/** Reset a session: every attempt in it goes, the session stays. */
+export const DELETE = (event: APIEvent) =>
+  handle(async () => {
+    const { db, userId } = await requireUser(event.request);
+    // required, so a missing parameter can never wipe every session at once
+    const sessionId = new URL(event.request.url).searchParams.get("sessionId");
+    if (!sessionId) return json({ error: "sessionId required" }, 400);
+    await db
+      .delete(schema.solve)
+      .where(and(eq(schema.solve.userId, userId), eq(schema.solve.sessionId, sessionId)));
+    return json({ ok: true });
   });

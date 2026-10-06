@@ -58,5 +58,7 @@ export function createRemoteAdapter(): StorageAdapter {
     addSolve: (rec) => call<SolveRecord>("/api/data/solves", post(rec)),
     deleteSolve: (id) => call(`/api/data/solves/${id}`, { method: "DELETE" }),
     updateSolve: (id, body) => call(`/api/data/solves/${id}`, patch(body)),
+    clearSession: (sessionId) =>
+      call(`/api/data/solves?sessionId=${encodeURIComponent(sessionId)}`, { method: "DELETE" }),
   };
 }

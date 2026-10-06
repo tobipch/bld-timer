@@ -76,6 +76,12 @@ button:hover {
   border-color: var(--accent);
 }
 
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+  border-color: var(--border);
+}
+
 button.primary {
   background: var(--accent);
   border-color: var(--accent);

@@ -34,5 +34,7 @@ export interface StorageAdapter {
   listSolves(sessionId?: string): Promise<SolveRecord[]>;
   addSolve(rec: Omit<SolveRecord, "id">): Promise<SolveRecord>;
   deleteSolve(id: string): Promise<void>;
+  /** Delete every attempt of one session; the session itself stays. */
+  clearSession(sessionId: string): Promise<void>;
   updateSolve(id: string, patch: SolvePatch): Promise<void>;
 }
