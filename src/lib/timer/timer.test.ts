@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { algToOuterMoves, invertOuterMoves } from "../cube/alg";
 import type { OuterMove } from "../cube/state";
+import { computeFlow } from "../flow";
 import { ScrambleFollower } from "./follow";
 import { TimerMachine } from "./machine";
 
@@ -122,6 +123,21 @@ describe("TimerMachine", () => {
     const o = m.lastOutcome!;
     expect(o.result).toBe("dnf");
     expect(o.moves).toHaveLength(1);
+  });
+
+  it("the wait between the last turn and space is not measured", () => {
+    const m = readyMachine("R U");
+    // a steady execution, then a long wait before space
+    const turns = [2000, 2200, 2400, 2600, 2800];
+    for (const t of turns) m.onCubeMove({ face: "F", amount: 1 }, t, t);
+    m.trigger(30_000);
+    const o = m.lastOutcome!;
+    expect(o.result).toBe("dnf");
+    expect(o.execMs).toBe(800);
+    const f = computeFlow(o.moves.map((x) => x.t));
+    expect(f.execMs).toBe(800);
+    expect(f.pauses).toBe(0);
+    expect(f.flow).toBe(1);
   });
 
   it("space before the first turn gives up the attempt", () => {
